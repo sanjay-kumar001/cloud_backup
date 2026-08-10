@@ -1,0 +1,205 @@
+{
+ "actions": [],
+ "app": "cloud_backup",
+ "creation": "2026-08-10 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "enabled",
+  "default_provider",
+  "sb_auto",
+  "automatic_upload",
+  "verify_upload",
+  "cb_auto",
+  "upload_database",
+  "upload_files",
+  "upload_full",
+  "sb_retention",
+  "auto_delete_remote",
+  "retention_type",
+  "cb_retention",
+  "retention_count",
+  "retention_days",
+  "sb_notify",
+  "notifications_enabled",
+  "sb_status",
+  "last_upload_timestamp",
+  "last_upload_status",
+  "last_upload_message",
+  "cb_status",
+  "last_cleanup_timestamp",
+  "last_cleanup_status"
+ ],
+ "fields": [
+  {
+   "default": "1",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled",
+   "description": "Global toggle for automatic uploads; manual upload always works"
+  },
+  {
+   "fieldname": "default_provider",
+   "fieldtype": "Link",
+   "label": "Default Provider",
+   "options": "Cloud Backup Provider",
+   "description": "Active provider driving automatic uploads"
+  },
+  {
+   "fieldname": "sb_auto",
+   "fieldtype": "Section Break",
+   "label": "Automatic Upload"
+  },
+  {
+   "default": "0",
+   "fieldname": "automatic_upload",
+   "fieldtype": "Check",
+   "label": "Automatic Upload After Backup"
+  },
+  {
+   "default": "0",
+   "fieldname": "verify_upload",
+   "fieldtype": "Check",
+   "label": "Verify Upload"
+  },
+  {
+   "fieldname": "cb_auto",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "fieldname": "upload_database",
+   "fieldtype": "Check",
+   "label": "Include Database Backup"
+  },
+  {
+   "default": "0",
+   "fieldname": "upload_files",
+   "fieldtype": "Check",
+   "label": "Include Files Backup"
+  },
+  {
+   "default": "0",
+   "fieldname": "upload_full",
+   "fieldtype": "Check",
+   "label": "Include Full Backup"
+  },
+  {
+   "fieldname": "sb_retention",
+   "fieldtype": "Section Break",
+   "label": "Retention"
+  },
+  {
+   "default": "0",
+   "fieldname": "auto_delete_remote",
+   "fieldtype": "Check",
+   "label": "Auto-Delete Remote Backups",
+   "description": "Master switch for cloud-side cleanup; off keeps cloud backups indefinitely"
+  },
+  {
+   "default": "Count",
+   "depends_on": "auto_delete_remote",
+   "fieldname": "retention_type",
+   "fieldtype": "Select",
+   "label": "Retention Type",
+   "options": "Count\nAge"
+  },
+  {
+   "fieldname": "cb_retention",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "10",
+   "depends_on": "eval:doc.auto_delete_remote && doc.retention_type=='Count'",
+   "fieldname": "retention_count",
+   "fieldtype": "Int",
+   "label": "Backups to Keep",
+   "description": "Keep the latest N managed backups"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.auto_delete_remote && doc.retention_type=='Age'",
+   "fieldname": "retention_days",
+   "fieldtype": "Int",
+   "label": "Retention Days",
+   "description": "Delete managed backups older than N days; 0 keeps indefinitely"
+  },
+  {
+   "fieldname": "sb_notify",
+   "fieldtype": "Section Break",
+   "label": "Notifications"
+  },
+  {
+   "default": "0",
+   "fieldname": "notifications_enabled",
+   "fieldtype": "Check",
+   "label": "Enable Notifications"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "sb_status",
+   "fieldtype": "Section Break",
+   "label": "Status"
+  },
+  {
+   "fieldname": "last_upload_timestamp",
+   "fieldtype": "Datetime",
+   "label": "Last Upload Timestamp",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_upload_status",
+   "fieldtype": "Select",
+   "label": "Last Upload Status",
+   "options": "\nSuccess\nFailed",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_upload_message",
+   "fieldtype": "Small Text",
+   "label": "Last Upload Message",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb_status",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "last_cleanup_timestamp",
+   "fieldtype": "Datetime",
+   "label": "Last Cleanup Timestamp",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_cleanup_status",
+   "fieldtype": "Select",
+   "label": "Last Cleanup Status",
+   "options": "\nSuccess\nFailed",
+   "read_only": 1
+  }
+ ],
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-08-10 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cloud Backup",
+ "name": "Cloud Backup Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "read": 1,
+   "role": "Cloud Backup Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

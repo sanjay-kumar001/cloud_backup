@@ -1,0 +1,185 @@
+{
+ "actions": [],
+ "app": "cloud_backup",
+ "autoname": "field:provider_name",
+ "creation": "2026-08-10 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "provider_name",
+  "provider_type",
+  "enabled",
+  "authentication_status",
+  "storage_kind",
+  "sb_credentials",
+  "client_id",
+  "client_secret",
+  "cb_credentials",
+  "access_token",
+  "refresh_token",
+  "token_expiry",
+  "sb_destination",
+  "root_folder",
+  "destination_folder",
+  "folder_name_display",
+  "sb_s3",
+  "bucket",
+  "region"
+ ],
+ "fields": [
+  {
+   "fieldname": "provider_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Provider Name",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "provider_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Provider Type",
+   "options": "google_drive\ndropbox\nonedrive\namazon_s3",
+   "reqd": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Enabled"
+  },
+  {
+   "default": "Not Configured",
+   "fieldname": "authentication_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Authentication Status",
+   "options": "Not Configured\nAuthorized\nExpired\nFailed",
+   "read_only": 1
+  },
+  {
+   "fieldname": "storage_kind",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Storage Kind",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sb_credentials",
+   "fieldtype": "Section Break",
+   "label": "Credentials"
+  },
+  {
+   "fieldname": "client_id",
+   "fieldtype": "Password",
+   "label": "Client ID"
+  },
+  {
+   "fieldname": "client_secret",
+   "fieldtype": "Password",
+   "label": "Client Secret"
+  },
+  {
+   "fieldname": "cb_credentials",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "access_token",
+   "fieldtype": "Password",
+   "label": "Access Token",
+   "read_only": 1
+  },
+  {
+   "fieldname": "refresh_token",
+   "fieldtype": "Password",
+   "label": "Refresh Token",
+   "read_only": 1
+  },
+  {
+   "fieldname": "token_expiry",
+   "fieldtype": "Datetime",
+   "label": "Token Expiry",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.storage_kind=='folder'",
+   "fieldname": "sb_destination",
+   "fieldtype": "Section Break",
+   "label": "Destination"
+  },
+  {
+   "fieldname": "root_folder",
+   "fieldtype": "Data",
+   "label": "Root Folder",
+   "description": "Root folder ID or path to browse from"
+  },
+  {
+   "fieldname": "destination_folder",
+   "fieldtype": "Data",
+   "label": "Destination Folder",
+   "description": "Selected destination folder ID or path"
+  },
+  {
+   "fieldname": "folder_name_display",
+   "fieldtype": "Data",
+   "label": "Folder Name",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.storage_kind=='object'",
+   "fieldname": "sb_s3",
+   "fieldtype": "Section Break",
+   "label": "Amazon S3"
+  },
+  {
+   "fieldname": "bucket",
+   "fieldtype": "Data",
+   "label": "Bucket"
+  },
+  {
+   "fieldname": "region",
+   "fieldtype": "Data",
+   "label": "Region"
+  }
+ ],
+ "links": [],
+ "modified": "2026-08-10 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cloud Backup",
+ "name": "Cloud Backup Provider",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Cloud Backup Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "provider_name",
+ "track_changes": 1
+}

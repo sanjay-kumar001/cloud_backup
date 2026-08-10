@@ -1,0 +1,11 @@
+[
+ {
+  "doctype": "Role",
+  "name": "Cloud Backup Manager",
+  "role_name": "Cloud Backup Manager",
+  "desk_access": 1,
+  "disabled": 0,
+  "is_custom": 0,
+  "two_factor_auth": 0
+ }
+]
