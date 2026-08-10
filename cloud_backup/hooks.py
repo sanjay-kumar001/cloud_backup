@@ -17,6 +17,11 @@ fixtures = [
 	{"dt": "Role", "filters": [["name", "in", ["Cloud Backup Manager"]]]},
 ]
 
+# Google OAuth drive-domain registration (shared callback convention)
+# ------------------
+before_request = ["cloud_backup.services.oauth_service.register_drive_domain"]
+before_job = ["cloud_backup.services.oauth_service.register_drive_domain"]
+
 # Each item in the list will be shown as an app in the apps page
 # add_to_apps_screen = [
 # 	{

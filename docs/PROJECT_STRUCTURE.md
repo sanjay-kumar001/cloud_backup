@@ -20,15 +20,44 @@ cloud_backup/
 │       ├── cloud_backup_settings/   # Single — global settings
 │       ├── cloud_backup_provider/   # provider config + credentials
 │       └── cloud_backup_log/        # operational event log
+├── api/
+│   └── provider.py                  # whitelisted: authorize, test_connection, list/create folders
+├── services/
+│   ├── oauth_service.py             # drive-domain registration, authorize URL, callback, token refresh
+│   └── provider_service.py          # resolve authed provider instance (+ token refresh) via registry
 ├── providers/
 │   ├── base.py                      # CloudBackupProvider ABC (BRD §9.1 contract)
-│   └── registry.py                  # provider_type -> class resolver
+│   ├── registry.py                  # provider_type -> class resolver (google_drive registered)
+│   └── google_drive/
+│       ├── __init__.py              # drive OAuth wiring constants
+│       └── provider.py              # GoogleDriveProvider (auth, test, folders, quota)
 ├── utils/
 │   ├── constants.py                 # provider-type enum + storage-kind map (single source of truth)
 │   └── exceptions.py                # typed error taxonomy (BRD §12)
 └── tests/
-    └── test_providers.py            # ABC / registry / exception unit tests
+    ├── test_providers.py            # ABC / registry / exception unit tests
+    ├── test_google_drive_provider.py# Drive provider (API stubbed)
+    └── test_provider_service.py     # token-refresh orchestration + oauth wiring
 ```
+
+## Google Drive Authentication (OAuth)
+
+Uses Frappe's `GoogleOAuth` and its **shared callback** (`frappe.integrations.google_oauth.callback`), per
+core convention — no core files edited. Because the `drive` domain is not pre-registered in core,
+`oauth_service.register_drive_domain()` maps it to this app's callback + service version; it is wired on
+`before_request`/`before_job` (hooks.py) so the shared callback resolves it in web and worker processes.
+
+- **Authorize:** form button → `api.provider.authorize` → `oauth_service.get_authorization_url` (state
+  carries the provider name + redirect back to the form) → Google consent → shared callback →
+  `oauth_service.authorize_access` exchanges the code and stores `access_token`/`refresh_token`/
+  `token_expiry` (Password fields) and flips `authentication_status` to Authorized.
+- **Token refresh:** `provider_service.get_provider` refreshes an expired Drive token via
+  `GoogleOAuth.refresh_access_token` before use; on refresh failure it sets `authentication_status = Expired`.
+- **Folder browser:** form dialog drives `api.provider.list_folders` / `create_folder`; selection writes
+  `destination_folder` + `folder_name_display` on the Provider (the upload target the engine reads later).
+- **Boundary note:** `GoogleDriveProvider` (in `providers/`) does pure Drive I/O and never writes app
+  DocTypes; all credential/token persistence lives in `services/`. Upload/list/delete of files are stubbed
+  (`NotImplementedError`) until the upload milestone.
 
 ## Delivered DocTypes
 
