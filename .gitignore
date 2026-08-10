@@ -53,3 +53,18 @@ jspm_packages/
 
 # Aider AI Chat
 .aider*
+
+# Avian
+cloud_backup/public/frontend
+cloud_backup/public/node_modules
+build
+yarn.lock
+package-lock.json
+docs/*ROADMAP*.md
+docs/*REQUIREMENTS*.md
+
+# Claude
+.ruff_cache/
+.claude/
+CLAUDE.md
+plan.md
