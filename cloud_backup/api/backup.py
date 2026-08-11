@@ -5,10 +5,12 @@
 
 from __future__ import annotations
 
+import os
+
 import frappe
 
-from cloud_backup.services import backup_service
-from cloud_backup.utils.constants import DocType
+from cloud_backup.services import backup_service, retention_service
+from cloud_backup.utils.constants import UPLOAD_QUEUE, UPLOAD_TIMEOUT, DocType
 
 
 @frappe.whitelist()
@@ -35,6 +37,35 @@ def upload_latest(backup_type: str | None = None) -> dict:
 		provider, backup_type or _default_backup_type(settings), trigger="manual"
 	)
 	return {"history": names}
+
+
+@frappe.whitelist()
+def retry_upload(history: str) -> dict:
+	"""Re-enqueue a failed/cancelled upload for the given History row."""
+	frappe.has_permission(DocType.HISTORY, "write", doc=history, throw=True)
+	doc = frappe.get_doc(DocType.HISTORY, history)
+	if doc.status not in ("Failed", "Cancelled"):
+		frappe.throw(frappe._("Only failed or cancelled uploads can be retried"))
+	if not doc.local_file or not os.path.exists(doc.local_file):
+		frappe.throw(frappe._("The local backup file no longer exists"))
+	doc.db_set("status", "Queued", commit=False)
+	doc.db_set("error", None, commit=False)
+	frappe.db.commit()
+	frappe.enqueue(
+		"cloud_backup.jobs.upload_backup.run",
+		queue=UPLOAD_QUEUE,
+		timeout=UPLOAD_TIMEOUT,
+		history=doc.name,
+		trigger="retry",
+	)
+	return {"history": doc.name}
+
+
+@frappe.whitelist()
+def run_cleanup(dry_run: int | str = 0) -> dict:
+	"""Run the retention cleanup now (dry_run=1 to preview candidate count)."""
+	frappe.has_permission(DocType.SETTINGS, "write", throw=True)
+	return retention_service.run_cleanup(dry_run=bool(int(dry_run)))
 
 
 def _default_backup_type(settings) -> str:

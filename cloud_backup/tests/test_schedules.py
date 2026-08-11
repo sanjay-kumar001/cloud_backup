@@ -62,10 +62,14 @@ class TestSchedules(FrappeTestCase):
 				"schedule_name": "T " + frappe.generate_hash(length=6),
 				"provider": provider.name,
 				"schedule_type": "Daily",
-				"upload_database": 1,
 			}
 		).insert(ignore_permissions=True)
 
+		frappe.db.set_value(
+			"Cloud Backup Settings",
+			"Cloud Backup Settings",
+			{"upload_database": 1, "upload_files": 0, "upload_full": 0},
+		)
 		self.patch(frappe, "enqueue", lambda *a, **k: None)
 		names = backup_service.enqueue_for_schedule(schedule, _Odb(tmp))
 		self.assertEqual(len(names), 1)

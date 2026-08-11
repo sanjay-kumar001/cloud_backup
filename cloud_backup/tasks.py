@@ -38,7 +38,9 @@ def run_schedule(schedule) -> list[str]:
 	"""Create a backup and enqueue its upload for this schedule's provider."""
 	from frappe.utils.backups import new_backup
 
-	odb = new_backup(ignore_files=not schedule.upload_files)
+	settings = frappe.get_single(DocType.SETTINGS)
+	wants_files = bool({"public", "private"} & backup_service.selected_artifacts(settings))
+	odb = new_backup(ignore_files=not wants_files)
 	names = backup_service.enqueue_for_schedule(schedule, odb)
 	schedule.db_set("last_run", now_datetime())
 	frappe.db.commit()

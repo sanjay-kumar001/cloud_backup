@@ -25,6 +25,8 @@
   "cb_remote",
   "file_size",
   "checksum",
+  "remote_deleted",
+  "deleted_at",
   "sb_verification",
   "verification_status",
   "cb_verification",
@@ -143,6 +145,20 @@
    "fieldname": "checksum",
    "fieldtype": "Data",
    "label": "Checksum",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "remote_deleted",
+   "fieldtype": "Check",
+   "label": "Remote Deleted",
+   "read_only": 1
+  },
+  {
+   "depends_on": "remote_deleted",
+   "fieldname": "deleted_at",
+   "fieldtype": "Datetime",
+   "label": "Deleted At",
    "read_only": 1
   },
   {

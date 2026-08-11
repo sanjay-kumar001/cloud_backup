@@ -72,14 +72,10 @@ def auto_enqueue_latest(trigger: str = "fallback") -> list[str]:
 
 
 def enqueue_for_schedule(schedule, odb, trigger: str = "schedule") -> list[str]:
-	"""Upload a schedule's freshly-made backup to that schedule's provider."""
+	"""Upload a schedule's backup to its provider, using the Settings backup types."""
 	if not is_provider_ready(schedule.provider):
 		return []
-	artifacts: set[str] = set()
-	if schedule.upload_database:
-		artifacts.add("database")
-	if schedule.upload_files:
-		artifacts.update(("public", "private"))
+	artifacts = selected_artifacts(frappe.get_single(DocType.SETTINGS))
 	return _enqueue_artifacts(
 		schedule.provider, artifacts, lambda a: getattr(odb, ARTIFACT_PATH_ATTR[a], None), trigger
 	)
@@ -93,7 +89,7 @@ def _auto_enqueue(path_for, trigger: str) -> list[str]:
 	provider = settings.default_provider
 	if not provider or not is_provider_ready(provider):
 		return []
-	return _enqueue_artifacts(provider, _selected_artifacts(settings), path_for, trigger)
+	return _enqueue_artifacts(provider, selected_artifacts(settings), path_for, trigger)
 
 
 def _enqueue_artifacts(provider: str, artifacts, path_for, trigger: str) -> list[str]:
@@ -134,7 +130,7 @@ def already_uploaded(path: str, provider: str) -> bool:
 	)
 
 
-def _selected_artifacts(settings) -> set[str]:
+def selected_artifacts(settings) -> set[str]:
 	"""Resolve artifact keys from the Settings upload-type toggles."""
 	keys: set[str] = set()
 	if settings.upload_full:

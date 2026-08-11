@@ -32,9 +32,13 @@ cloud_backup/
 ├── services/
 │   ├── oauth_service.py             # drive-domain registration, authorize URL, callback, token refresh
 │   ├── provider_service.py          # resolve authed provider instance (+ token refresh) via registry
-│   └── backup_service.py            # find latest backup, create History, enqueue upload (+ auto/schedule)
+│   ├── backup_service.py            # find latest backup, create History, enqueue upload (+ auto/schedule)
+│   ├── retention_service.py         # Settings-gated cloud cleanup (managed rows only, count/age)
+│   ├── notification_service.py      # in-app + email to System Managers on key events
+│   └── log_service.py               # write Cloud Backup Log rows with secrets scrubbed
 ├── jobs/
-│   └── upload_backup.py             # enqueued entrypoint: upload one artifact, persist transitions
+│   ├── upload_backup.py             # enqueued entrypoint: upload one artifact (retry + verify)
+│   └── cleanup_backup.py            # scheduled/manual retention cleanup entrypoint
 ├── providers/
 │   ├── base.py                      # CloudBackupProvider ABC (BRD §9.1 contract)
 │   ├── registry.py                  # provider_type -> class resolver (google_drive registered)
@@ -51,7 +55,9 @@ cloud_backup/
     ├── test_provider_service.py     # token-refresh orchestration + oauth wiring
     ├── test_file_utils.py           # filename helpers
     ├── test_upload.py               # enqueue_upload + upload job (Drive mocked)
-    └── test_core_patches.py         # governed patch upgrade guards
+    ├── test_core_patches.py         # governed patch upgrade guards
+    ├── test_schedules.py            # schedule due-evaluation + per-provider dedupe
+    └── test_reliability.py          # secret scrubbing + retention selection/safety
 ```
 
 **Naming constants:** DocType names live once in `utils/constants.py::DocType` (`DocType.PROVIDER`, etc.)
@@ -110,6 +116,28 @@ core convention — no core files edited. Because the `drive` domain is not pre-
   are treated as distinct destinations.
 - **Commit-before-enqueue.** `_create_and_enqueue` commits the History row before `frappe.enqueue` — the CLI
   backup process doesn't auto-commit like a web request, so the worker would otherwise miss the row.
+- **Backup types are single-source.** Only **Settings** carries `upload_database`/`upload_files`/
+  `upload_full`; the auto-path, the fallback, and every **Schedule** read them via
+  `backup_service.selected_artifacts`. A Schedule defines only *when* + *which provider*.
+
+## Reliability (retry · verify · retention · notify)
+
+- **Retry.** `jobs/upload_backup._upload_with_retry` retries **retryable** errors (`NetworkError`/
+  `RateLimited`/429/5xx) with exponential backoff (2→5→10s, max 4 attempts), incrementing `retry_count` and
+  flipping status to `Retrying`; honours `RateLimited.retry_after`. Non-retryable errors fail immediately.
+  History exposes a manual **Retry Upload** button (`api.backup.retry_upload`).
+- **Verification.** When `Settings.verify_upload`, `_verify` compares remote size (and checksum when both
+  sides expose one) via `provider.get_file_metadata` → `verification_status` Verified/Failed.
+- **Retention (safety-critical).** `retention_service.run_cleanup` is gated by `Settings.auto_delete_remote`
+  and drives deletion **from Cloud Backup History rows only** — never by enumerating the remote folder — so
+  unrelated files can't match (FR-20/38). Per provider it applies count- or age-based policy, calls
+  `provider.delete_file`, marks the row `remote_deleted`, and writes `last_cleanup_*`. Wired
+  `scheduler_events["daily"] → jobs.cleanup_backup.run`; **Run Cleanup Now** button + `api.backup.run_cleanup`
+  (with `dry_run`). Idempotent (NFR-14).
+- **Notifications.** `notification_service.notify` sends in-app + email to enabled System Managers on
+  failures when `Settings.notifications_enabled`.
+- **Logging.** `log_service.write_log` records events to **Cloud Backup Log** with secrets scrubbed
+  (`scrub_secrets` redacts token/secret/password/client_id keys and masks token-like strings, NFR-10/34).
 
 ## Delivered DocTypes
 
@@ -119,7 +147,7 @@ core convention — no core files edited. Because the `drive` domain is not pre-
 | Cloud Backup Provider | Master | Provider config + credentials | `provider_name`, `provider_type`, `enabled`, `authentication_status`, `Password` secrets, `token_expiry`, `root_folder`/`destination_folder`/`folder_name_display`, `bucket`/`region` |
 | Cloud Backup Log | Master (in-create) | Technical events | `timestamp`, `level`, `event`, `source`, `message`, `details` |
 | Cloud Backup History | Master (in-create) | One row per upload attempt | `site`, `provider`, `backup_type`, `local_file`/`local_file_size`, `status`, `started_at`/`completed_at`/`duration`, `remote_file`/`remote_path`/`file_size`/`checksum`, `verification_status`, `retry_count`, `error` |
-| Cloud Backup Schedule | Master | Recurring backup-and-upload cadence | `schedule_name`, `enabled`, `provider`, `schedule_type` (Daily/Weekly/Custom), `frequency` (cron), `upload_database`/`upload_files`, `last_run` |
+| Cloud Backup Schedule | Master | Recurring backup-and-upload cadence | `schedule_name`, `enabled`, `provider`, `schedule_type` (Daily/Weekly/Custom), `frequency` (cron), `last_run` (backup **types** inherited from Settings) |
 
 ## Roles & Permissions
 

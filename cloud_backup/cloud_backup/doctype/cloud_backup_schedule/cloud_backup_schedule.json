@@ -13,8 +13,7 @@
   "schedule_type",
   "frequency",
   "sb_types",
-  "upload_database",
-  "upload_files",
+  "types_note",
   "sb_status",
   "last_run"
  ],
@@ -68,16 +67,9 @@
    "label": "Backup Types"
   },
   {
-   "default": "1",
-   "fieldname": "upload_database",
-   "fieldtype": "Check",
-   "label": "Include Database Backup"
-  },
-  {
-   "default": "0",
-   "fieldname": "upload_files",
-   "fieldtype": "Check",
-   "label": "Include Files Backup"
+   "fieldname": "types_note",
+   "fieldtype": "HTML",
+   "options": "<p class=\"text-muted\">Backup types (database / files) are configured once in <a href=\"/app/cloud-backup-settings\">Cloud Backup Settings</a> and apply to schedules too.</p>"
   },
   {
    "fieldname": "sb_status",

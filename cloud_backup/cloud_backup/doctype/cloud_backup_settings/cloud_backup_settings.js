@@ -7,6 +7,9 @@ frappe.ui.form.on("Cloud Backup Settings", {
 		frm.add_custom_button(__("Upload Latest Backup"), () =>
 			cloud_backup.settings.upload_latest(frm)
 		).addClass("btn-primary");
+		frm.add_custom_button(__("Run Cleanup Now"), () =>
+			cloud_backup.settings.run_cleanup(frm)
+		);
 	},
 
 	render_status_banner(frm) {
@@ -28,6 +31,26 @@ frappe.ui.form.on("Cloud Backup Settings", {
 });
 
 frappe.provide("cloud_backup.settings");
+
+cloud_backup.settings.run_cleanup = function (frm) {
+	if (!frm.doc.auto_delete_remote) {
+		frappe.msgprint({
+			title: __("Cleanup disabled"),
+			message: __("Enable 'Auto-Delete Remote Backups' first."),
+			indicator: "orange",
+		});
+		return;
+	}
+	frappe.confirm(__("Delete managed remote backups outside the retention policy?"), () => {
+		frappe.xcall("cloud_backup.api.backup.run_cleanup", { dry_run: 0 }).then((r) => {
+			frappe.show_alert({
+				message: __("Cleanup done: {0} deleted", [r.deleted || 0]),
+				indicator: "green",
+			});
+			frm.reload_doc();
+		});
+	});
+};
 
 cloud_backup.settings.upload_latest = function (frm) {
 	const dialog = new frappe.ui.Dialog({
