@@ -23,6 +23,19 @@ TYPE_ARTIFACTS = {
 # Remote-filename label per artifact key.
 ARTIFACT_LABEL = {"database": "database", "public": "files", "private": "private-files"}
 
+# History backup_type recorded per artifact key.
+ARTIFACT_TYPE = {"database": "database", "public": "files", "private": "files"}
+
+# BackupGenerator path attribute per artifact key.
+ARTIFACT_PATH_ATTR = {
+	"database": "backup_path_db",
+	"public": "backup_path_files",
+	"private": "backup_path_private_files",
+}
+
+# Statuses that already own an upload for a local file (dedupe guard).
+_ACTIVE_STATUSES = ("Queued", "Processing", "Uploading", "Verifying", "Completed")
+
 
 def find_latest_backup() -> dict[str, str | None]:
 	"""Return absolute paths of the latest {database, public, private} backups."""
@@ -40,26 +53,121 @@ def enqueue_upload(provider: str, backup_type: str, trigger: str = "manual") -> 
 		path = latest.get(key)
 		if not path or not os.path.exists(path):
 			continue
-		history = frappe.get_doc(
-			{
-				"doctype": DocType.HISTORY,
-				"site": frappe.local.site,
-				"provider": provider,
-				"backup_type": backup_type,
-				"local_file": path,
-				"local_file_size": os.path.getsize(path),
-				"status": "Queued",
-			}
-		).insert(ignore_permissions=True)
-		frappe.enqueue(
-			"cloud_backup.jobs.upload_backup.run",
-			queue=UPLOAD_QUEUE,
-			timeout=UPLOAD_TIMEOUT,
-			history=history.name,
-			artifact=key,
-			trigger=trigger,
-		)
-		names.append(history.name)
+		names.append(_create_and_enqueue(provider, backup_type, key, path, trigger))
 	if not names:
 		raise InvalidConfiguration("No backup file found to upload")
 	return names
+
+
+def enqueue_after_backup(odb, trigger: str = "auto") -> list[str]:
+	"""Auto-upload entry (patch path): enqueue artifacts from a finished backup."""
+	return _auto_enqueue(lambda artifact: getattr(odb, ARTIFACT_PATH_ATTR[artifact], None), trigger)
+
+
+def auto_enqueue_latest(trigger: str = "fallback") -> list[str]:
+	"""Auto-upload entry (fallback poller): enqueue artifacts from the latest backup."""
+	latest = find_latest_backup()
+	key = {"database": "database", "public": "public", "private": "private"}
+	return _auto_enqueue(lambda artifact: latest.get(key[artifact]), trigger)
+
+
+def enqueue_for_schedule(schedule, odb, trigger: str = "schedule") -> list[str]:
+	"""Upload a schedule's freshly-made backup to that schedule's provider."""
+	if not is_provider_ready(schedule.provider):
+		return []
+	artifacts: set[str] = set()
+	if schedule.upload_database:
+		artifacts.add("database")
+	if schedule.upload_files:
+		artifacts.update(("public", "private"))
+	return _enqueue_artifacts(
+		schedule.provider, artifacts, lambda a: getattr(odb, ARTIFACT_PATH_ATTR[a], None), trigger
+	)
+
+
+def _auto_enqueue(path_for, trigger: str) -> list[str]:
+	"""Settings-gated auto-upload of selected artifacts, with dedupe."""
+	settings = frappe.get_single(DocType.SETTINGS)
+	if not (settings.enabled and settings.automatic_upload):
+		return []
+	provider = settings.default_provider
+	if not provider or not is_provider_ready(provider):
+		return []
+	return _enqueue_artifacts(provider, _selected_artifacts(settings), path_for, trigger)
+
+
+def _enqueue_artifacts(provider: str, artifacts, path_for, trigger: str) -> list[str]:
+	"""Create + enqueue an upload per existing, not-yet-uploaded artifact."""
+	names: list[str] = []
+	for artifact in artifacts:
+		path = path_for(artifact)
+		if not path or not os.path.exists(path) or already_uploaded(path, provider):
+			continue
+		names.append(_create_and_enqueue(provider, ARTIFACT_TYPE[artifact], artifact, path, trigger))
+	return names
+
+
+def is_provider_ready(provider: str | None) -> bool:
+	"""True when the provider is authorized and has a destination selected."""
+	if not provider:
+		return False
+	config = frappe.db.get_value(
+		DocType.PROVIDER,
+		provider,
+		["authentication_status", "destination_folder", "root_folder"],
+		as_dict=True,
+	)
+	return bool(
+		config
+		and config.authentication_status == "Authorized"
+		and (config.destination_folder or config.root_folder)
+	)
+
+
+def already_uploaded(path: str, provider: str) -> bool:
+	"""True when a History row already owns this file for this provider (NFR-06)."""
+	return bool(
+		frappe.db.exists(
+			DocType.HISTORY,
+			{"local_file": path, "provider": provider, "status": ["in", _ACTIVE_STATUSES]},
+		)
+	)
+
+
+def _selected_artifacts(settings) -> set[str]:
+	"""Resolve artifact keys from the Settings upload-type toggles."""
+	keys: set[str] = set()
+	if settings.upload_full:
+		keys.update(("database", "public", "private"))
+	if settings.upload_database:
+		keys.add("database")
+	if settings.upload_files:
+		keys.update(("public", "private"))
+	return keys
+
+
+def _create_and_enqueue(provider: str, backup_type: str, artifact: str, path: str, trigger: str) -> str:
+	"""Create a Queued History row and enqueue its upload job."""
+	history = frappe.get_doc(
+		{
+			"doctype": DocType.HISTORY,
+			"site": frappe.local.site,
+			"provider": provider,
+			"backup_type": backup_type,
+			"local_file": path,
+			"local_file_size": os.path.getsize(path),
+			"status": "Queued",
+		}
+	).insert(ignore_permissions=True)
+	# Commit before enqueue so the worker always sees the row — the CLI backup
+	# path (bench backup) does not auto-commit like a web request (NFR-17).
+	frappe.db.commit()
+	frappe.enqueue(
+		"cloud_backup.jobs.upload_backup.run",
+		queue=UPLOAD_QUEUE,
+		timeout=UPLOAD_TIMEOUT,
+		history=history.name,
+		artifact=artifact,
+		trigger=trigger,
+	)
+	return history.name

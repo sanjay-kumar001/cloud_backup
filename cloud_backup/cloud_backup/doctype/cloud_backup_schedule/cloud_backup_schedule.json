@@ -1,0 +1,118 @@
+{
+ "actions": [],
+ "app": "cloud_backup",
+ "autoname": "field:schedule_name",
+ "creation": "2026-08-11 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "schedule_name",
+  "enabled",
+  "provider",
+  "cb_schedule",
+  "schedule_type",
+  "frequency",
+  "sb_types",
+  "upload_database",
+  "upload_files",
+  "sb_status",
+  "last_run"
+ ],
+ "fields": [
+  {
+   "fieldname": "schedule_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Schedule Name",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Enabled"
+  },
+  {
+   "fieldname": "provider",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Provider",
+   "options": "Cloud Backup Provider",
+   "reqd": 1
+  },
+  {
+   "fieldname": "cb_schedule",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Daily",
+   "fieldname": "schedule_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Schedule Type",
+   "options": "Daily\nWeekly\nCustom"
+  },
+  {
+   "depends_on": "eval:doc.schedule_type=='Custom'",
+   "description": "Cron expression, e.g. 0 2 * * *",
+   "fieldname": "frequency",
+   "fieldtype": "Data",
+   "label": "Frequency (cron)",
+   "mandatory_depends_on": "eval:doc.schedule_type=='Custom'"
+  },
+  {
+   "fieldname": "sb_types",
+   "fieldtype": "Section Break",
+   "label": "Backup Types"
+  },
+  {
+   "default": "1",
+   "fieldname": "upload_database",
+   "fieldtype": "Check",
+   "label": "Include Database Backup"
+  },
+  {
+   "default": "0",
+   "fieldname": "upload_files",
+   "fieldtype": "Check",
+   "label": "Include Files Backup"
+  },
+  {
+   "fieldname": "sb_status",
+   "fieldtype": "Section Break",
+   "label": "Status"
+  },
+  {
+   "fieldname": "last_run",
+   "fieldtype": "Datetime",
+   "label": "Last Run",
+   "read_only": 1
+  }
+ ],
+ "links": [],
+ "modified": "2026-08-11 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cloud Backup",
+ "name": "Cloud Backup Schedule",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "schedule_name"
+}

@@ -12,20 +12,27 @@ path (`cloud_backup.providers.base`, etc.).
 
 ```text
 cloud_backup/
-├── hooks.py                         # single wiring surface (before_request/before_job)
+├── __init__.py                      # import-time bootstrap: apply governed core patches
+├── hooks.py                         # wiring: before_request/before_job/after_migrate, scheduler_events
+├── tasks.py                         # scheduler entrypoints: auto_upload_fallback, run_due_schedules
 ├── cloud_backup/                    # module "Cloud Backup"
 │   └── doctype/
 │       ├── cloud_backup_settings/   # Single — global settings
 │       ├── cloud_backup_provider/   # provider config + credentials
 │       ├── cloud_backup_log/        # operational event log
-│       └── cloud_backup_history/    # one row per upload attempt (in-create)
+│       ├── cloud_backup_history/    # one row per upload attempt (in-create)
+│       └── cloud_backup_schedule/   # recurring backup-and-upload cadence
 ├── api/
 │   ├── provider.py                  # whitelisted: authorize, test_connection, list/create folders
 │   └── backup.py                    # whitelisted: upload_latest (validate + enqueue)
+├── overrides/                       # governed core runtime patch framework (docs/CORE_PATCHES.md)
+│   ├── patch_manager.py             # apply_all_patches, kill-switch, record_original, patch_status
+│   ├── patch_registry.py            # PATCH_REGISTRY tuple of dotted apply-callables
+│   └── core/backups.py              # wraps frappe.utils.backups.new_backup (post-backup auto-upload)
 ├── services/
 │   ├── oauth_service.py             # drive-domain registration, authorize URL, callback, token refresh
 │   ├── provider_service.py          # resolve authed provider instance (+ token refresh) via registry
-│   └── backup_service.py            # find latest backup, create History, enqueue upload
+│   └── backup_service.py            # find latest backup, create History, enqueue upload (+ auto/schedule)
 ├── jobs/
 │   └── upload_backup.py             # enqueued entrypoint: upload one artifact, persist transitions
 ├── providers/
@@ -43,7 +50,8 @@ cloud_backup/
     ├── test_google_drive_provider.py# Drive provider (API stubbed)
     ├── test_provider_service.py     # token-refresh orchestration + oauth wiring
     ├── test_file_utils.py           # filename helpers
-    └── test_upload.py               # enqueue_upload + upload job (Drive mocked)
+    ├── test_upload.py               # enqueue_upload + upload job (Drive mocked)
+    └── test_core_patches.py         # governed patch upgrade guards
 ```
 
 **Naming constants:** DocType names live once in `utils/constants.py::DocType` (`DocType.PROVIDER`, etc.)
@@ -82,6 +90,27 @@ core convention — no core files edited. Because the `drive` domain is not pre-
   writes the `last_upload_*` trio back onto Settings. Live status is pushed via `publish_realtime`.
 - **Verification (P5):** `verification_status` and `retry_count` fields exist but are not yet driven.
 
+## Automatic & Scheduled Upload
+
+- **Post-backup auto-upload (the one core patch).** `overrides/core/backups.py` wraps
+  `frappe.utils.backups.new_backup` (governed by [CORE_PATCHES.md](CORE_PATCHES.md)): every backup path
+  (Desk / `bench backup` / cron) funnels through it, so after the files exist it calls
+  `backup_service.enqueue_after_backup(odb)` — Settings-gated (`enabled` + `automatic_upload`), uploads the
+  selected artifacts to `Settings.default_provider`. Applied via import-time bootstrap +
+  `before_request`/`before_job`/`after_migrate`; kill-switch `disable_runtime_patches`; probe
+  `patch_manager.patch_status()`.
+- **Fallback poller.** `scheduler_events["all"] → tasks.auto_upload_fallback` acts **only** when the patch is
+  kill-switched off, polling `fetch_latest_backups()` so auto-upload still works (next-tick latency).
+- **Schedules.** `tasks.run_due_schedules` (scheduler `all`) runs each enabled **Cloud Backup Schedule**
+  whose cadence is due (`is_due`: Daily/Weekly by `last_run`, Custom by croniter), calling `new_backup` then
+  `backup_service.enqueue_for_schedule` to upload to *that schedule's* provider. **Run Now** button on the
+  form triggers it on demand.
+- **Dedupe (NFR-06).** `already_uploaded(path, provider)` keys on **(local file, provider)**, so the patch
+  and the fallback/schedule never double-upload the same artifact to the same provider; different providers
+  are treated as distinct destinations.
+- **Commit-before-enqueue.** `_create_and_enqueue` commits the History row before `frappe.enqueue` — the CLI
+  backup process doesn't auto-commit like a web request, so the worker would otherwise miss the row.
+
 ## Delivered DocTypes
 
 | DocType | Type | Purpose | Key fields |
@@ -90,6 +119,7 @@ core convention — no core files edited. Because the `drive` domain is not pre-
 | Cloud Backup Provider | Master | Provider config + credentials | `provider_name`, `provider_type`, `enabled`, `authentication_status`, `Password` secrets, `token_expiry`, `root_folder`/`destination_folder`/`folder_name_display`, `bucket`/`region` |
 | Cloud Backup Log | Master (in-create) | Technical events | `timestamp`, `level`, `event`, `source`, `message`, `details` |
 | Cloud Backup History | Master (in-create) | One row per upload attempt | `site`, `provider`, `backup_type`, `local_file`/`local_file_size`, `status`, `started_at`/`completed_at`/`duration`, `remote_file`/`remote_path`/`file_size`/`checksum`, `verification_status`, `retry_count`, `error` |
+| Cloud Backup Schedule | Master | Recurring backup-and-upload cadence | `schedule_name`, `enabled`, `provider`, `schedule_type` (Daily/Weekly/Custom), `frequency` (cron), `upload_database`/`upload_files`, `last_run` |
 
 ## Roles & Permissions
 

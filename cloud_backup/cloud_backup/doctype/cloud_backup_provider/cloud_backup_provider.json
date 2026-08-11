@@ -12,6 +12,7 @@
   "authentication_status",
   "storage_kind",
   "sb_credentials",
+  "gdrive_credentials_note",
   "client_id",
   "client_secret",
   "cb_credentials",
@@ -73,11 +74,20 @@
    "label": "Credentials"
   },
   {
+   "depends_on": "eval:doc.provider_type=='google_drive'",
+   "fieldname": "gdrive_credentials_note",
+   "fieldtype": "HTML",
+   "label": "Google Drive Credentials Note",
+   "options": "<p class=\"text-muted\">Google Drive uses the Client ID and Client Secret from <a href=\"/app/google-settings\">Google Settings</a>. No credentials are needed here — click <b>Authorize</b> below.</p>"
+  },
+  {
+   "depends_on": "eval:doc.provider_type && doc.provider_type!='google_drive'",
    "fieldname": "client_id",
    "fieldtype": "Password",
    "label": "Client ID"
   },
   {
+   "depends_on": "eval:doc.provider_type && doc.provider_type!='google_drive'",
    "fieldname": "client_secret",
    "fieldtype": "Password",
    "label": "Client Secret"

@@ -10,10 +10,26 @@ app_license = "mit"
 
 # required_apps = []
 
-# Google OAuth drive-domain registration (shared callback convention)
+# Runtime wiring: drive-domain registration + governed core patches
 # ------------------
-before_request = ["cloud_backup.services.oauth_service.register_drive_domain"]
-before_job = ["cloud_backup.services.oauth_service.register_drive_domain"]
+before_request = [
+	"cloud_backup.services.oauth_service.register_drive_domain",
+	"cloud_backup.overrides.patch_manager.apply_all_patches",
+]
+before_job = [
+	"cloud_backup.services.oauth_service.register_drive_domain",
+	"cloud_backup.overrides.patch_manager.apply_all_patches",
+]
+after_migrate = ["cloud_backup.overrides.patch_manager.apply_all_patches"]
+
+# Scheduled Tasks
+# ------------------
+scheduler_events = {
+	"all": [
+		"cloud_backup.tasks.auto_upload_fallback",
+		"cloud_backup.tasks.run_due_schedules",
+	],
+}
 
 # Each item in the list will be shown as an app in the apps page
 # add_to_apps_screen = [
