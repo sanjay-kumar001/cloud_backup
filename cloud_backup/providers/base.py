@@ -39,8 +39,10 @@ class CloudBackupProvider(ABC):
 		"""Create a folder and return its metadata (id, name)."""
 
 	@abstractmethod
-	def upload_file(self, local_path: str, remote_target: str) -> dict[str, Any]:
-		"""Stream local_path to remote_target; return remote id/path/size."""
+	def upload_file(
+		self, local_path: str, remote_target: str, remote_name: str | None = None
+	) -> dict[str, Any]:
+		"""Stream local_path into remote_target as remote_name; return id/name/size."""
 
 	@abstractmethod
 	def list_files(self, folder_id: str | None = None) -> list[dict[str, Any]]:

@@ -10,13 +10,6 @@ app_license = "mit"
 
 # required_apps = []
 
-# Fixtures
-# ------------------
-
-fixtures = [
-	{"dt": "Role", "filters": [["name", "in", ["Cloud Backup Manager"]]]},
-]
-
 # Google OAuth drive-domain registration (shared callback convention)
 # ------------------
 before_request = ["cloud_backup.services.oauth_service.register_drive_domain"]

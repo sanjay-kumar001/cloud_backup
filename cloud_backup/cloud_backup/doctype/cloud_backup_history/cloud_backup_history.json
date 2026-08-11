@@ -1,0 +1,207 @@
+{
+ "actions": [],
+ "app": "cloud_backup",
+ "autoname": "CBH-.YYYY.-.#####",
+ "creation": "2026-08-11 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "in_create": 1,
+ "field_order": [
+  "sb_backup",
+  "site",
+  "backup_type",
+  "local_file",
+  "local_file_size",
+  "cb_backup",
+  "status",
+  "started_at",
+  "completed_at",
+  "duration",
+  "sb_provider",
+  "provider",
+  "sb_remote",
+  "remote_file",
+  "remote_path",
+  "cb_remote",
+  "file_size",
+  "checksum",
+  "sb_verification",
+  "verification_status",
+  "cb_verification",
+  "retry_count",
+  "sb_error",
+  "error"
+ ],
+ "fields": [
+  {
+   "fieldname": "sb_backup",
+   "fieldtype": "Section Break",
+   "label": "Backup"
+  },
+  {
+   "fieldname": "site",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Site",
+   "read_only": 1
+  },
+  {
+   "fieldname": "backup_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Backup Type",
+   "options": "database\nfiles\nfull",
+   "read_only": 1
+  },
+  {
+   "fieldname": "local_file",
+   "fieldtype": "Small Text",
+   "label": "Local File",
+   "read_only": 1
+  },
+  {
+   "fieldname": "local_file_size",
+   "fieldtype": "Int",
+   "label": "Local File Size (bytes)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb_backup",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Queued",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Queued\nProcessing\nUploading\nVerifying\nCompleted\nFailed\nRetrying\nCancelled\nSkipped",
+   "read_only": 1
+  },
+  {
+   "fieldname": "started_at",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Started At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "completed_at",
+   "fieldtype": "Datetime",
+   "label": "Completed At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "duration",
+   "fieldtype": "Float",
+   "label": "Duration (s)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sb_provider",
+   "fieldtype": "Section Break",
+   "label": "Provider"
+  },
+  {
+   "fieldname": "provider",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Provider",
+   "options": "Cloud Backup Provider",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sb_remote",
+   "fieldtype": "Section Break",
+   "label": "Remote"
+  },
+  {
+   "fieldname": "remote_file",
+   "fieldtype": "Data",
+   "label": "Remote File ID",
+   "read_only": 1
+  },
+  {
+   "fieldname": "remote_path",
+   "fieldtype": "Small Text",
+   "label": "Remote Path",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb_remote",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "file_size",
+   "fieldtype": "Int",
+   "label": "Uploaded Size (bytes)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "checksum",
+   "fieldtype": "Data",
+   "label": "Checksum",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sb_verification",
+   "fieldtype": "Section Break",
+   "label": "Verification"
+  },
+  {
+   "default": "Not Verified",
+   "fieldname": "verification_status",
+   "fieldtype": "Select",
+   "label": "Verification Status",
+   "options": "Not Verified\nVerified\nFailed",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb_verification",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "retry_count",
+   "fieldtype": "Int",
+   "label": "Retry Count",
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "depends_on": "error",
+   "fieldname": "sb_error",
+   "fieldtype": "Section Break",
+   "label": "Error"
+  },
+  {
+   "fieldname": "error",
+   "fieldtype": "Text",
+   "label": "Error",
+   "read_only": 1
+  }
+ ],
+ "links": [],
+ "modified": "2026-08-11 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cloud Backup",
+ "name": "Cloud Backup History",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager"
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "site"
+}

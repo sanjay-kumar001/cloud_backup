@@ -12,14 +12,12 @@ from frappe.utils import get_datetime, now_datetime
 from cloud_backup.providers.base import CloudBackupProvider
 from cloud_backup.providers.registry import get_provider_class
 from cloud_backup.services import oauth_service
-from cloud_backup.utils.constants import OBJECT_PROVIDERS, ProviderType
-
-PROVIDER_DOCTYPE = "Cloud Backup Provider"
+from cloud_backup.utils.constants import OBJECT_PROVIDERS, DocType, ProviderType
 
 
 def get_provider(provider: str | Document) -> CloudBackupProvider:
 	"""Return an authenticated provider instance, refreshing tokens if stale."""
-	doc = provider if isinstance(provider, Document) else frappe.get_doc(PROVIDER_DOCTYPE, provider)
+	doc = provider if isinstance(provider, Document) else frappe.get_doc(DocType.PROVIDER, provider)
 	_ensure_valid_token(doc)
 	instance = get_provider_class(doc.provider_type)(_build_config(doc))
 	instance.authenticate()

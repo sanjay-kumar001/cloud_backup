@@ -8,15 +8,22 @@ from frappe.integrations import google_oauth as _google_oauth
 from frappe.tests.utils import FrappeTestCase
 from frappe.utils import add_to_date, now_datetime
 
-from cloud_backup.providers.google_drive import DRIVE_CALLBACK_METHOD, DRIVE_SERVICE_VERSION
+from cloud_backup.providers.google_drive import (
+	DRIVE_CALLBACK_METHOD,
+	DRIVE_DOMAIN,
+	DRIVE_SCOPE,
+	DRIVE_SERVICE_VERSION,
+)
 from cloud_backup.services import oauth_service, provider_service
 
 
 class TestProviderService(FrappeTestCase):
 	def test_register_drive_domain(self):
 		oauth_service.register_drive_domain()
-		self.assertEqual(_google_oauth._DOMAIN_CALLBACK_METHODS["drive"], DRIVE_CALLBACK_METHOD)
-		self.assertEqual(_google_oauth._SERVICES["drive"], DRIVE_SERVICE_VERSION)
+		self.assertEqual(_google_oauth._DOMAIN_CALLBACK_METHODS[DRIVE_DOMAIN], DRIVE_CALLBACK_METHOD)
+		self.assertEqual(_google_oauth._SERVICES[DRIVE_DOMAIN], DRIVE_SERVICE_VERSION)
+		self.assertEqual(_google_oauth._SCOPES[DRIVE_DOMAIN], DRIVE_SCOPE)
+		self.assertTrue(DRIVE_SCOPE.endswith("drive.file"))
 
 	def _make_provider(self, expiry):
 		return frappe.get_doc(

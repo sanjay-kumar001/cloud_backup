@@ -49,12 +49,19 @@ frappe.ui.form.on("Cloud Backup Provider", {
 	},
 
 	flash_authorization_result(frm) {
-		const result = frappe.utils.get_url_arg("cb_authorized");
-		if (result === "1") {
-			frappe.show_alert({ message: __("Google Drive authorized"), indicator: "green" });
-		} else if (result === "0") {
-			frappe.show_alert({ message: __("Authorization failed"), indicator: "red" });
+		// The shared Google callback appends cb_authorized=1 whenever Google
+		// returned no error, even if the token exchange failed — so trust the
+		// persisted authentication_status, not the URL param.
+		if (frappe.utils.get_url_arg("cb_authorized") === null) {
+			return;
 		}
+		const ok = frm.doc.authentication_status === "Authorized";
+		frappe.show_alert({
+			message: ok
+				? __("Google Drive authorized")
+				: __("Authorization failed — check Google Settings client secret and the Error Log"),
+			indicator: ok ? "green" : "red",
+		});
 	},
 
 	set_status_indicator(frm) {

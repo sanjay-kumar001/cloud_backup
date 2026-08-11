@@ -6,6 +6,16 @@
 from __future__ import annotations
 
 
+class DocType:
+	"""Canonical DocType names for this app (schema lives in the JSON)."""
+
+	SETTINGS = "Cloud Backup Settings"
+	PROVIDER = "Cloud Backup Provider"
+	HISTORY = "Cloud Backup History"
+	LOG = "Cloud Backup Log"
+	SCHEDULE = "Cloud Backup Schedule"
+
+
 class StorageKind:
 	"""How a provider addresses backups: folder tree vs object store."""
 
@@ -28,6 +38,10 @@ PROVIDER_STORAGE_KIND: dict[str, str] = {
 	ProviderType.ONEDRIVE: StorageKind.FOLDER,
 	ProviderType.AMAZON_S3: StorageKind.OBJECT,
 }
+
+UPLOAD_QUEUE = "long"
+UPLOAD_TIMEOUT = 3600
+UPLOAD_CHUNK_SIZE = 5 * 1024 * 1024
 
 PROVIDER_TYPES: tuple[str, ...] = tuple(PROVIDER_STORAGE_KIND)
 FOLDER_PROVIDERS: frozenset[str] = frozenset(

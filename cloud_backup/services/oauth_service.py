@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import frappe
-from frappe.integrations import google_oauth as _google_oauth
 from frappe.integrations.google_oauth import GoogleAuthenticationError, GoogleOAuth
 from frappe.utils import add_to_date, now_datetime
 
@@ -14,17 +13,17 @@ from cloud_backup.providers.google_drive import (
 	DRIVE_CALLBACK_METHOD,
 	DRIVE_DOMAIN,
 	DRIVE_SERVICE_VERSION,
+	register_domain,
 )
+from cloud_backup.utils.constants import DocType
 from cloud_backup.utils.exceptions import AuthenticationError
 
-PROVIDER_DOCTYPE = "Cloud Backup Provider"
 _DEFAULT_TOKEN_TTL = 3600
 
 
 def register_drive_domain(*args, **kwargs) -> None:
-	"""Map the drive domain to this app's callback for the shared handler."""
-	_google_oauth._DOMAIN_CALLBACK_METHODS[DRIVE_DOMAIN] = DRIVE_CALLBACK_METHOD
-	_google_oauth._SERVICES[DRIVE_DOMAIN] = DRIVE_SERVICE_VERSION
+	"""Register the drive domain (scope/service/callback) for the shared handler."""
+	register_domain()
 
 
 def get_drive_oauth() -> GoogleOAuth:
@@ -41,7 +40,7 @@ def get_drive_oauth() -> GoogleOAuth:
 
 def get_authorization_url(provider: str) -> dict[str, str]:
 	"""Return the Google consent URL for the given provider record."""
-	frappe.has_permission(PROVIDER_DOCTYPE, "write", doc=provider, throw=True)
+	frappe.has_permission(DocType.PROVIDER, "write", doc=provider, throw=True)
 	oauth = get_drive_oauth()
 	state = {
 		"provider": provider,
@@ -54,7 +53,7 @@ def get_authorization_url(provider: str) -> dict[str, str]:
 
 def authorize_access(provider: str, code: str | None = None, **kwargs) -> None:
 	"""Shared-callback target: exchange the code and store Drive tokens."""
-	doc = frappe.get_doc(PROVIDER_DOCTYPE, provider)
+	doc = frappe.get_doc(DocType.PROVIDER, provider)
 	doc.check_permission("write")
 	tokens = get_drive_oauth().authorize(code) if code else {}
 	if not tokens.get("access_token"):

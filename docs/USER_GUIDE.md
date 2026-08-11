@@ -28,6 +28,17 @@ In Desk open **Google Settings** and set:
 - **Client ID** / **Client Secret** → from §1.1
 - **Enable Google Drive Picker** → on
 
+> ⚠️ **The Client Secret must actually be entered and saved.** It is a Password field, so after saving it
+> shows blank — that is normal, but if it was never populated, `get_password("client_secret")` returns empty
+> and every authorization fails with **"client_secret is missing."** (Google Cloud no longer lets you view an
+> existing secret; if you don't have the value, create a new one under **Credentials → your OAuth client →
+> Add secret** and paste it.) Verify with:
+> ```bash
+> bench --site <your-site> console
+> >>> bool(frappe.get_single("Google Settings").get_password("client_secret", raise_exception=False))
+> True
+> ```
+
 ### 1.3 The redirect URI (critical)
 
 The redirect URI Cloud Backup uses is always:
@@ -122,7 +133,7 @@ While the Google app is unverified it runs in **Testing** mode and only **approv
 1. **APIs & Services → OAuth consent screen** (newer console: the **Audience** tab).
 2. Under **Test users → + Add users**, add the exact Google account you will authorize with
    (e.g. `you@gmail.com`). **Save.**
-3. Confirm the scope `https://www.googleapis.com/auth/drive` is present.
+3. Confirm the scope `https://www.googleapis.com/auth/drive.file` is present (see §1.8 on scope choice).
 
 > Without this you get **`Error 403: access_denied` — "<App> has not completed the Google verification
 > process … can only be accessed by developer-approved testers."** Add the account as a test user and retry.
@@ -134,8 +145,13 @@ While the Google app is unverified it runs in **Testing** mode and only **approv
 2. Click **Authorize** → complete Google consent with a test-user account → you return to the form with
    status **Authorized** (green).
 3. Click **Test Connection** — expect *"Connected as you@gmail.com"*.
-4. Click **Select Destination Folder** — browse or create a folder (e.g. "ERPNext Backups"); the selection
-   is saved on the provider as the upload target.
+4. Click **Select Destination Folder** — **create** the backup folder here (e.g. "ERPNext Backups") and
+   select it; the selection is saved on the provider as the upload target.
+
+> **Folder browser & the `drive.file` scope:** the app uses the narrow `drive.file` scope (§1.8), which grants
+> access **only to files and folders this app creates** (or that you pick via the Google Picker). So the
+> folder browser lists app-created folders, **not** your entire Drive. Create the destination folder with the
+> **New Folder** button and the app will manage it. This is the expected, safer behaviour for a backup app.
 
 ### 1.7 Production configuration
 
@@ -144,6 +160,19 @@ For a real deployment, serve the site over HTTPS on a public domain and use that
 - `host_name = https://backups.example.com`
 - Registered redirect URI = `https://backups.example.com/api/method/frappe.integrations.google_oauth.callback`
 - Revert any localhost `host_name`/`currentsite.txt` changes made for dev.
+
+### 1.8 OAuth scope choice (`drive.file`, not full Drive)
+
+Cloud Backup requests **`https://www.googleapis.com/auth/drive.file`** — a **non-restricted** scope — instead
+of the full `drive` scope. This is deliberate:
+
+- **Full `drive`** is a **restricted** scope: to publish publicly without warnings, Google requires an annual
+  paid **CASA** security assessment.
+- **`drive.file`** avoids that path. The app can only see/manage what it creates, which is exactly what a
+  backup app needs, and it sidesteps the restricted-scope verification burden.
+
+The app registers this on its **own** OAuth "domain" (`cloud_backup_drive`), so it never changes the scope of
+Frappe's shared `drive` integration. Trade-off: the folder browser only shows app-created folders (see §1.6).
 
 ---
 
@@ -154,6 +183,8 @@ For a real deployment, serve the site over HTTPS on a public domain and use that
 | `Error 400: invalid_request` — "doesn't comply with Google's OAuth 2.0 policy" | Redirect URI is http on a non-loopback host, or uses a reserved TLD (`.local`/`.test`) | Use `http://localhost:<port>` (§1.4) or a real HTTPS domain (§1.7) |
 | `Error 400: redirect_uri_mismatch` | The URI Frappe sent isn't registered in the OAuth client | Register the exact `get_url()+callback` value (§1.4) |
 | `Error 403: access_denied` — "has not completed the Google verification process" | App in Testing mode; account isn't a test user | Add the account under **Test users** (§1.5) |
+| Provider stuck at **Failed** right after authorizing (Error Log: *"client_secret is missing"*) | Google Settings Client Secret is empty | Re-enter the Client Secret in **Google Settings** and Save (§1.2), then Authorize again |
+| Green "authorized" toast but provider shows **Failed** | (Older builds) toast trusted the callback URL param, not the real result | Fixed — the toast now reflects `authentication_status`. Check the Error Log for the real cause |
 | Authorize button missing on the form | Record unsaved, or `provider_type` not set | Save the record with `provider_type = google_drive`; hard-refresh |
 | Status flips to **Expired** after ~7 days | Testing-mode refresh tokens expire in 7 days | Re-Authorize, or publish the app (§3) |
 
@@ -164,21 +195,19 @@ For a real deployment, serve the site over HTTPS on a public domain and use that
 **Is publishing paid?** No — clicking **OAuth consent screen → Publish app** (moving from Testing to
 Production) is **free**, and so is Google's verification review.
 
-Nuances that matter for the full-Drive scope this app uses:
+Because this app uses the **non-restricted `drive.file`** scope (§1.8), it **does not** trigger the paid
+restricted-scope (full-Drive) verification/CASA path. Remaining nuances:
 
 - **Testing mode (free):** only test users; refresh tokens **expire after 7 days** (you re-authorize weekly).
-- **Internal user type (free, no verification):** available only if the Google account belongs to a **Google
-  Workspace organization**. Best option if you have Workspace — no 7-day expiry, no warnings.
-- **External + Published, unverified (free):** works for personal use, but users see an "unverified app"
-  warning they must click through.
-- **External + Published, verified:** `https://www.googleapis.com/auth/drive` (full Drive) is a **restricted**
-  scope. Publishing/verification is free, but full verification of a restricted scope for public distribution
-  can require an **annual third-party security (CASA) assessment**, which is **paid**. This is only needed to
-  distribute publicly without warnings — **not** for personal or single-organization self-hosting.
+- **Published (free):** removes the 7-day refresh-token expiry. With `drive.file` there is **no CASA
+  requirement**. Depending on Google's current policy you may still see a one-time "unverified app" notice
+  for a sensitive scope — click **Advanced → Go to <App> (unsafe) → Continue**; harmless for self-hosting.
+- **Internal user type (free, no verification, no warning):** only if the Google account belongs to a
+  **Google Workspace organization**. Not available for a plain `@gmail.com`.
 
-**Practical guidance:** for a self-hosted single-site backup, either keep the app in **Testing** (accept the
-weekly re-auth) or, if you have Google Workspace, set the consent screen **User type = Internal** to avoid
-both the 7-day expiry and any cost.
+**Practical guidance (personal `@gmail.com`, self-hosted):** **Publish** the app (removes the 7-day expiry)
+and keep the `drive.file` scope — no paid assessment is required. The occasional unverified notice is
+click-through only.
 
 ---
 

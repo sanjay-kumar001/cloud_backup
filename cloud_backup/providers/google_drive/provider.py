@@ -5,9 +5,11 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from googleapiclient.errors import HttpError
+from googleapiclient.http import MediaFileUpload
 from requests.exceptions import RequestException
 
 from cloud_backup.providers.base import CloudBackupProvider
@@ -16,8 +18,9 @@ from cloud_backup.providers.google_drive import (
 	DRIVE_DOMAIN,
 	DRIVE_SERVICE_VERSION,
 	FOLDER_MIME_TYPE,
+	register_domain,
 )
-from cloud_backup.utils.constants import ProviderType, StorageKind
+from cloud_backup.utils.constants import UPLOAD_CHUNK_SIZE, ProviderType, StorageKind
 from cloud_backup.utils.exceptions import (
 	AuthenticationError,
 	CloudBackupError,
@@ -25,8 +28,6 @@ from cloud_backup.utils.exceptions import (
 	PermissionDenied,
 	RateLimited,
 )
-
-_UPLOAD_PENDING = "Google Drive file operations are not available yet"
 
 
 class GoogleDriveProvider(CloudBackupProvider):
@@ -38,6 +39,11 @@ class GoogleDriveProvider(CloudBackupProvider):
 	def __init__(self, config: dict[str, Any]) -> None:
 		super().__init__(config)
 		self._service = None
+		self._progress = None
+
+	def set_progress_callback(self, callback) -> None:
+		"""Register a callable(fraction: float) invoked during upload."""
+		self._progress = callback
 
 	def authenticate(self) -> None:
 		from frappe.integrations.google_oauth import GoogleOAuth
@@ -46,6 +52,7 @@ class GoogleDriveProvider(CloudBackupProvider):
 		refresh_token = self.config.get("refresh_token")
 		if not access_token or not refresh_token:
 			raise AuthenticationError("Google Drive provider is not authorized")
+		register_domain()
 		oauth = GoogleOAuth(
 			DRIVE_DOMAIN,
 			config={
@@ -114,17 +121,72 @@ class GoogleDriveProvider(CloudBackupProvider):
 		used = int(quota.get("usage", 0))
 		return {"used": used, "total": limit, "available": (limit - used) if limit else None}
 
-	def upload_file(self, local_path: str, remote_target: str) -> dict[str, Any]:
-		raise NotImplementedError(_UPLOAD_PENDING)
+	def upload_file(
+		self, local_path: str, remote_target: str, remote_name: str | None = None
+	) -> dict[str, Any]:
+		parent = self._resolve_parent(remote_target)
+		metadata = {"name": remote_name or os.path.basename(local_path), "parents": [parent]}
+		media = MediaFileUpload(local_path, resumable=True, chunksize=UPLOAD_CHUNK_SIZE)
+		try:
+			request = self.service.files().create(
+				body=metadata, media_body=media, fields="id,name,size,md5Checksum"
+			)
+			response = None
+			while response is None:
+				_status, response = request.next_chunk()
+				if _status and self._progress:
+					self._progress(_status.progress())
+		except (HttpError, RequestException) as exc:
+			raise self._map_error(exc)
+		return {
+			"id": response["id"],
+			"name": response["name"],
+			"size": int(response.get("size") or 0),
+			"checksum": response.get("md5Checksum"),
+		}
 
 	def list_files(self, folder_id: str | None = None) -> list[dict[str, Any]]:
-		raise NotImplementedError(_UPLOAD_PENDING)
+		parent = self._resolve_parent(folder_id or self.config.get("destination_folder"))
+		query = f"trashed=false and mimeType!='{FOLDER_MIME_TYPE}' and '{parent}' in parents"
+		try:
+			response = (
+				self.service.files()
+				.list(q=query, fields="files(id,name,size,md5Checksum)", pageSize=1000, spaces="drive")
+				.execute()
+			)
+		except (HttpError, RequestException) as exc:
+			raise self._map_error(exc)
+		return [
+			{
+				"id": f["id"],
+				"name": f["name"],
+				"size": int(f.get("size") or 0),
+				"checksum": f.get("md5Checksum"),
+			}
+			for f in response.get("files", [])
+		]
 
 	def get_file_metadata(self, file_id: str) -> dict[str, Any]:
-		raise NotImplementedError(_UPLOAD_PENDING)
+		try:
+			meta = (
+				self.service.files()
+				.get(fileId=file_id, fields="id,name,size,md5Checksum")
+				.execute()
+			)
+		except (HttpError, RequestException) as exc:
+			raise self._map_error(exc)
+		return {
+			"id": meta["id"],
+			"name": meta["name"],
+			"size": int(meta.get("size") or 0),
+			"checksum": meta.get("md5Checksum"),
+		}
 
 	def delete_file(self, file_id: str) -> None:
-		raise NotImplementedError(_UPLOAD_PENDING)
+		try:
+			self.service.files().delete(fileId=file_id).execute()
+		except (HttpError, RequestException) as exc:
+			raise self._map_error(exc)
 
 	def _resolve_parent(self, parent_id: str | None) -> str:
 		return parent_id or self.config.get("root_folder") or "root"

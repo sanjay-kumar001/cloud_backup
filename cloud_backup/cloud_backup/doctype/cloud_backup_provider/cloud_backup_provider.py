@@ -10,6 +10,7 @@ from cloud_backup.utils.constants import (
 	FOLDER_PROVIDERS,
 	OBJECT_PROVIDERS,
 	PROVIDER_STORAGE_KIND,
+	DocType,
 	storage_kind_for,
 )
 
@@ -35,5 +36,5 @@ class CloudBackupProvider(Document):
 @frappe.whitelist()
 def get_provider_storage_kind() -> dict[str, str]:
 	"""Return the provider_type -> storage_kind map for form section toggling."""
-	frappe.has_permission("Cloud Backup Provider", "read", throw=True)
+	frappe.has_permission(DocType.PROVIDER, "read", throw=True)
 	return dict(PROVIDER_STORAGE_KIND)
