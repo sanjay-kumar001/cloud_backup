@@ -18,10 +18,16 @@ def make_provider(provider_type: str = "onedrive", **kwargs):
 	).insert(ignore_permissions=True)
 
 
-def make_schedule(schedule_type: str = "Daily", **kwargs):
-	"""Create a schedule of a type, replacing any existing one."""
-	if frappe.db.exists("Cloud Backup Schedule", schedule_type):
-		frappe.delete_doc("Cloud Backup Schedule", schedule_type, force=True, ignore_permissions=True)
+def make_schedule(schedule_type: str = "Daily", provider: str | None = None, **kwargs):
+	"""Create a schedule (named '<provider> <type>'), replacing any existing one."""
+	name = f"{provider} {frappe.unscrub(schedule_type)}"
+	if frappe.db.exists("Cloud Backup Schedule", name):
+		frappe.delete_doc("Cloud Backup Schedule", name, force=True, ignore_permissions=True)
 	return frappe.get_doc(
-		{"doctype": "Cloud Backup Schedule", "schedule_type": schedule_type, **kwargs}
+		{
+			"doctype": "Cloud Backup Schedule",
+			"schedule_type": schedule_type,
+			"provider": provider,
+			**kwargs,
+		}
 	).insert(ignore_permissions=True)
