@@ -12,6 +12,7 @@ from frappe.utils import add_to_date, get_datetime, now_datetime
 
 from cloud_backup.cloud_backup.doctype.cloud_backup_settings.cloud_backup_settings import (
 	get_cloud_backup_settings,
+	get_selected_artifacts,
 )
 from cloud_backup.overrides.patch_manager import is_disabled
 from cloud_backup.services import backup_service
@@ -41,7 +42,7 @@ def run_schedule(schedule) -> list[str]:
 	from frappe.utils.backups import new_backup
 
 	settings = get_cloud_backup_settings()
-	wants_files = bool({"public", "private"} & settings.get_selected_artifacts())
+	wants_files = bool({"public", "private"} & get_selected_artifacts(settings))
 	odb = new_backup(ignore_files=not wants_files)
 	names = backup_service.enqueue_for_schedule(schedule, odb)
 	schedule.db_set("last_run", now_datetime())

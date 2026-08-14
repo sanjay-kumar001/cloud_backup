@@ -12,6 +12,7 @@ from frappe.utils.backups import fetch_latest_backups
 
 from cloud_backup.cloud_backup.doctype.cloud_backup_settings.cloud_backup_settings import (
 	get_cloud_backup_settings,
+	get_selected_artifacts,
 )
 from cloud_backup.utils.constants import UPLOAD_QUEUE, UPLOAD_TIMEOUT
 from cloud_backup.utils.exceptions import InvalidConfiguration
@@ -78,7 +79,7 @@ def enqueue_for_schedule(schedule, odb, trigger: str = "schedule") -> list[str]:
 	"""Upload a schedule's backup to its provider, using the Settings backup types."""
 	if not is_provider_ready(schedule.provider):
 		return []
-	artifacts = get_cloud_backup_settings().get_selected_artifacts()
+	artifacts = get_selected_artifacts()
 	return _enqueue_artifacts(
 		schedule.provider, artifacts, lambda a: getattr(odb, ARTIFACT_PATH_ATTR[a], None), trigger
 	)
@@ -102,7 +103,7 @@ def _auto_enqueue(path_for, trigger: str) -> list[str]:
 	provider = resolve_provider(settings)
 	if not provider:
 		return []
-	return _enqueue_artifacts(provider, settings.get_selected_artifacts(), path_for, trigger)
+	return _enqueue_artifacts(provider, get_selected_artifacts(settings), path_for, trigger)
 
 
 def _enqueue_artifacts(provider: str, artifacts, path_for, trigger: str) -> list[str]:
