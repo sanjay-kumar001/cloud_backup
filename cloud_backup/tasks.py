@@ -10,9 +10,11 @@ from datetime import datetime
 import frappe
 from frappe.utils import add_to_date, get_datetime, now_datetime
 
+from cloud_backup.cloud_backup.doctype.cloud_backup_settings.cloud_backup_settings import (
+	get_cloud_backup_settings,
+)
 from cloud_backup.overrides.patch_manager import is_disabled
 from cloud_backup.services import backup_service
-from cloud_backup.utils.constants import DocType
 
 
 def auto_upload_fallback() -> None:
@@ -25,9 +27,9 @@ def auto_upload_fallback() -> None:
 def run_due_schedules() -> None:
 	"""Run every enabled schedule whose cadence is due."""
 	now = now_datetime()
-	for name in frappe.get_all(DocType.SCHEDULE, filters={"enabled": 1}, pluck="name"):
+	for name in frappe.get_all("Cloud Backup Schedule", filters={"enabled": 1}, pluck="name"):
 		try:
-			schedule = frappe.get_doc(DocType.SCHEDULE, name)
+			schedule = frappe.get_doc("Cloud Backup Schedule", name)
 			if is_due(schedule, now):
 				run_schedule(schedule)
 		except Exception:
@@ -38,8 +40,8 @@ def run_schedule(schedule) -> list[str]:
 	"""Create a backup and enqueue its upload for this schedule's provider."""
 	from frappe.utils.backups import new_backup
 
-	settings = frappe.get_single(DocType.SETTINGS)
-	wants_files = bool({"public", "private"} & backup_service.selected_artifacts(settings))
+	settings = get_cloud_backup_settings()
+	wants_files = bool({"public", "private"} & settings.get_selected_artifacts())
 	odb = new_backup(ignore_files=not wants_files)
 	names = backup_service.enqueue_for_schedule(schedule, odb)
 	schedule.db_set("last_run", now_datetime())

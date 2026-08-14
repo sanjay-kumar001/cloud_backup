@@ -10,6 +10,7 @@ from frappe.tests.utils import FrappeTestCase
 from frappe.utils import add_to_date, now_datetime
 
 from cloud_backup.services import log_service, provider_service, retention_service
+from cloud_backup.tests.utils import make_provider
 
 
 class TestScrub(unittest.TestCase):
@@ -63,15 +64,7 @@ class TestRetentionSelection(unittest.TestCase):
 
 class TestRetentionSafety(FrappeTestCase):
 	def test_deletes_only_managed_rows(self):
-		provider = frappe.get_doc(
-			{
-				"doctype": "Cloud Backup Provider",
-				"provider_name": frappe.generate_hash(length=8),
-				"provider_type": "google_drive",
-				"destination_folder": "RF",
-				"authentication_status": "Authorized",
-			}
-		).insert(ignore_permissions=True)
+		provider = make_provider("google_drive", destination_folder="RF")
 		tmp = frappe.get_site_path("private", "backups", "cb_ret.sql.gz")
 		with open(tmp, "wb") as f:
 			f.write(b"x")

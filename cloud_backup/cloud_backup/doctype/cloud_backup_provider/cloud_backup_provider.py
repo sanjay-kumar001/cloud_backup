@@ -10,12 +10,17 @@ from cloud_backup.utils.constants import (
 	FOLDER_PROVIDERS,
 	OBJECT_PROVIDERS,
 	PROVIDER_STORAGE_KIND,
-	DocType,
 	storage_kind_for,
 )
 
 
 class CloudBackupProvider(Document):
+	def autoname(self) -> None:
+		"""Name the record after the selected provider type (e.g. Google Drive)."""
+		if not self.provider_type:
+			frappe.throw(frappe._("Provider Type is required"))
+		self.name = frappe.unscrub(self.provider_type)
+
 	def validate(self) -> None:
 		"""Set initial auth status and validate provider-specific config."""
 		if self.is_new() and not self.authentication_status:
@@ -36,5 +41,5 @@ class CloudBackupProvider(Document):
 @frappe.whitelist()
 def get_provider_storage_kind() -> dict[str, str]:
 	"""Return the provider_type -> storage_kind map for form section toggling."""
-	frappe.has_permission(DocType.PROVIDER, "read", throw=True)
+	frappe.has_permission("Cloud Backup Provider", "read", throw=True)
 	return dict(PROVIDER_STORAGE_KIND)

@@ -10,8 +10,6 @@ import re
 
 import frappe
 
-from cloud_backup.utils.constants import DocType
-
 # Field-name fragments whose values must never be logged (NFR-10/34).
 _SECRET_KEYS = ("token", "secret", "password", "client_id", "api_key", "credential")
 _REDACTED = "***"
@@ -28,7 +26,7 @@ def write_log(
 	try:
 		doc = frappe.get_doc(
 			{
-				"doctype": DocType.LOG,
+				"doctype": "Cloud Backup Log",
 				"event": event,
 				"level": level,
 				"source": source,

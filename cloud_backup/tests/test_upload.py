@@ -8,6 +8,7 @@ from frappe.tests.utils import FrappeTestCase
 
 from cloud_backup.jobs import upload_backup
 from cloud_backup.services import backup_service, provider_service
+from cloud_backup.tests.utils import make_provider
 from cloud_backup.utils.exceptions import NetworkError
 from cloud_backup.utils.file_utils import slugify_site
 
@@ -30,15 +31,7 @@ class TestUpload(FrappeTestCase):
 		self.tmp = frappe.get_site_path("private", "backups", "cb_test.sql.gz")
 		with open(self.tmp, "wb") as f:
 			f.write(b"x" * 1024)
-		self.provider = frappe.get_doc(
-			{
-				"doctype": "Cloud Backup Provider",
-				"provider_name": frappe.generate_hash(length=8),
-				"provider_type": "google_drive",
-				"destination_folder": "folderX",
-				"authentication_status": "Authorized",
-			}
-		).insert(ignore_permissions=True)
+		self.provider = make_provider("google_drive", destination_folder="folderX")
 
 	def _history(self):
 		return frappe.get_doc(

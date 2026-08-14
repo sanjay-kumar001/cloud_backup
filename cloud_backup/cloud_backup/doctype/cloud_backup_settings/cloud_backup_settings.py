@@ -18,3 +18,19 @@ class CloudBackupSettings(Document):
 			frappe.throw(frappe._("Backups to Keep cannot be negative"))
 		if self.retention_days and self.retention_days < 0:
 			frappe.throw(frappe._("Retention Days cannot be negative"))
+
+	def get_selected_artifacts(self) -> set[str]:
+		"""Artifact keys to upload, resolved from the upload-type toggles."""
+		keys: set[str] = set()
+		if self.upload_full:
+			keys.update(("database", "public", "private"))
+		if self.upload_database:
+			keys.add("database")
+		if self.upload_files:
+			keys.update(("public", "private"))
+		return keys
+
+
+def get_cloud_backup_settings() -> "CloudBackupSettings":
+	"""Return the cached Cloud Backup Settings singleton."""
+	return frappe.get_cached_doc("Cloud Backup Settings")

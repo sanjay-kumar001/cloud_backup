@@ -1,19 +1,15 @@
 # Copyright (c) 2026, Sanjay Kumar and contributors
 # For license information, please see license.txt
 
-"""Canonical provider-type identifiers and storage classification."""
+"""App constants not derivable from a DocType schema."""
 
 from __future__ import annotations
 
-
-class DocType:
-	"""Canonical DocType names for this app (schema lives in the JSON)."""
-
-	SETTINGS = "Cloud Backup Settings"
-	PROVIDER = "Cloud Backup Provider"
-	HISTORY = "Cloud Backup History"
-	LOG = "Cloud Backup Log"
-	SCHEDULE = "Cloud Backup Schedule"
+UPLOAD_QUEUE = "long"
+UPLOAD_TIMEOUT = 3600
+UPLOAD_CHUNK_SIZE = 5 * 1024 * 1024
+UPLOAD_MAX_ATTEMPTS = 4
+UPLOAD_BACKOFF_SECONDS = (2, 5, 10)
 
 
 class StorageKind:
@@ -23,29 +19,13 @@ class StorageKind:
 	OBJECT = "object"
 
 
-class ProviderType:
-	"""Provider type identifiers; mirror the Cloud Backup Provider Select."""
-
-	GOOGLE_DRIVE = "google_drive"
-	DROPBOX = "dropbox"
-	ONEDRIVE = "onedrive"
-	AMAZON_S3 = "amazon_s3"
-
-
+# Folder-vs-object is app domain knowledge, not part of the DocType schema.
 PROVIDER_STORAGE_KIND: dict[str, str] = {
-	ProviderType.GOOGLE_DRIVE: StorageKind.FOLDER,
-	ProviderType.DROPBOX: StorageKind.FOLDER,
-	ProviderType.ONEDRIVE: StorageKind.FOLDER,
-	ProviderType.AMAZON_S3: StorageKind.OBJECT,
+	"google_drive": StorageKind.FOLDER,
+	"dropbox": StorageKind.FOLDER,
+	"onedrive": StorageKind.FOLDER,
+	"amazon_s3": StorageKind.OBJECT,
 }
-
-UPLOAD_QUEUE = "long"
-UPLOAD_TIMEOUT = 3600
-UPLOAD_CHUNK_SIZE = 5 * 1024 * 1024
-UPLOAD_MAX_ATTEMPTS = 4
-UPLOAD_BACKOFF_SECONDS = (2, 5, 10)
-
-PROVIDER_TYPES: tuple[str, ...] = tuple(PROVIDER_STORAGE_KIND)
 FOLDER_PROVIDERS: frozenset[str] = frozenset(
 	t for t, kind in PROVIDER_STORAGE_KIND.items() if kind == StorageKind.FOLDER
 )

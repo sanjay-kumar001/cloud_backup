@@ -12,12 +12,12 @@ from frappe.utils import get_datetime, now_datetime
 from cloud_backup.providers.base import CloudBackupProvider
 from cloud_backup.providers.registry import get_provider_class
 from cloud_backup.services import oauth_service
-from cloud_backup.utils.constants import OBJECT_PROVIDERS, DocType, ProviderType
+from cloud_backup.utils.constants import OBJECT_PROVIDERS
 
 
 def get_provider(provider: str | Document) -> CloudBackupProvider:
 	"""Return an authenticated provider instance, refreshing tokens if stale."""
-	doc = provider if isinstance(provider, Document) else frappe.get_doc(DocType.PROVIDER, provider)
+	doc = provider if isinstance(provider, Document) else frappe.get_doc("Cloud Backup Provider", provider)
 	_ensure_valid_token(doc)
 	instance = get_provider_class(doc.provider_type)(_build_config(doc))
 	instance.authenticate()
@@ -26,7 +26,7 @@ def get_provider(provider: str | Document) -> CloudBackupProvider:
 
 def _ensure_valid_token(doc: Document) -> None:
 	"""Refresh the Drive access token when it has expired."""
-	if doc.provider_type != ProviderType.GOOGLE_DRIVE:
+	if doc.provider_type != "google_drive":
 		return
 	if doc.token_expiry and get_datetime(doc.token_expiry) <= now_datetime():
 		oauth_service.refresh_token(doc)

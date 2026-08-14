@@ -9,29 +9,23 @@ import os
 
 import frappe
 
+from cloud_backup.cloud_backup.doctype.cloud_backup_settings.cloud_backup_settings import (
+	get_cloud_backup_settings,
+)
 from cloud_backup.services import backup_service, retention_service
-from cloud_backup.utils.constants import UPLOAD_QUEUE, UPLOAD_TIMEOUT, DocType
+from cloud_backup.utils.constants import UPLOAD_QUEUE, UPLOAD_TIMEOUT
 
 
 @frappe.whitelist()
 def upload_latest(backup_type: str | None = None) -> dict:
 	"""Validate config and enqueue upload of the latest backup; return History names."""
-	frappe.has_permission(DocType.SETTINGS, "write", throw=True)
-	settings = frappe.get_single(DocType.SETTINGS)
-	provider = settings.default_provider
+	frappe.has_permission("Cloud Backup Settings", "write", throw=True)
+	settings = get_cloud_backup_settings()
+	provider = backup_service.resolve_provider(settings)
 	if not provider:
-		frappe.throw(frappe._("Set a Default Provider in Cloud Backup Settings"))
-
-	config = frappe.db.get_value(
-		DocType.PROVIDER,
-		provider,
-		["authentication_status", "destination_folder", "root_folder"],
-		as_dict=True,
-	)
-	if config.authentication_status != "Authorized":
-		frappe.throw(frappe._("Default provider is not authorized"))
-	if not (config.destination_folder or config.root_folder):
-		frappe.throw(frappe._("Select a destination folder on the provider first"))
+		frappe.throw(
+			frappe._("No authorized provider with a destination is configured (default or fallback)")
+		)
 
 	names = backup_service.enqueue_upload(
 		provider, backup_type or _default_backup_type(settings), trigger="manual"
@@ -42,8 +36,8 @@ def upload_latest(backup_type: str | None = None) -> dict:
 @frappe.whitelist()
 def retry_upload(history: str) -> dict:
 	"""Re-enqueue a failed/cancelled upload for the given History row."""
-	frappe.has_permission(DocType.HISTORY, "write", doc=history, throw=True)
-	doc = frappe.get_doc(DocType.HISTORY, history)
+	frappe.has_permission("Cloud Backup History", "write", doc=history, throw=True)
+	doc = frappe.get_doc("Cloud Backup History", history)
 	if doc.status not in ("Failed", "Cancelled"):
 		frappe.throw(frappe._("Only failed or cancelled uploads can be retried"))
 	if not doc.local_file or not os.path.exists(doc.local_file):
@@ -64,7 +58,7 @@ def retry_upload(history: str) -> dict:
 @frappe.whitelist()
 def run_cleanup(dry_run: int | str = 0) -> dict:
 	"""Run the retention cleanup now (dry_run=1 to preview candidate count)."""
-	frappe.has_permission(DocType.SETTINGS, "write", throw=True)
+	frappe.has_permission("Cloud Backup Settings", "write", throw=True)
 	return retention_service.run_cleanup(dry_run=bool(int(dry_run)))
 
 

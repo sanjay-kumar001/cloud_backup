@@ -20,7 +20,7 @@ from cloud_backup.providers.google_drive import (
 	FOLDER_MIME_TYPE,
 	register_domain,
 )
-from cloud_backup.utils.constants import UPLOAD_CHUNK_SIZE, ProviderType, StorageKind
+from cloud_backup.utils.constants import UPLOAD_CHUNK_SIZE, StorageKind
 from cloud_backup.utils.exceptions import (
 	AuthenticationError,
 	CloudBackupError,
@@ -33,7 +33,7 @@ from cloud_backup.utils.exceptions import (
 class GoogleDriveProvider(CloudBackupProvider):
 	"""Folder-based provider using the Google Drive v3 API."""
 
-	provider_type = ProviderType.GOOGLE_DRIVE
+	provider_type = "google_drive"
 	storage_kind = StorageKind.FOLDER
 
 	def __init__(self, config: dict[str, Any]) -> None:

@@ -61,9 +61,12 @@ cloud_backup/
     └── test_reliability.py          # secret scrubbing + retention selection/safety
 ```
 
-**Naming constants:** DocType names live once in `utils/constants.py::DocType` (`DocType.PROVIDER`, etc.)
-and are imported across services/api/jobs — no repeated name literals in Python. (Schema JSON still declares
-the names, as Frappe requires.)
+**Conventions (Frappe-idiomatic):** DocType names are used as **plain string literals**
+(`frappe.get_doc("Cloud Backup History", …)`) — no `DocType`/`ProviderType` constant classes. Provider-type
+values come from the DocType Select (`frappe.get_meta("Cloud Backup Provider").get_field("provider_type")
+.options`); only the *folder-vs-object* `StorageKind` map (not in any schema) lives in `utils/constants.py`.
+The **Settings singleton** is read through the cached helper
+`cloud_backup_settings.get_cloud_backup_settings()` (`frappe.get_cached_doc`), not `frappe.get_single`.
 
 ## Google Drive Authentication (OAuth)
 
@@ -181,15 +184,25 @@ so exit codes reflect the real result (FR-55).
   the built remote filename.
 - `providers/registry.py::PROVIDER_REGISTRY` maps `provider_type` → class (`google_drive` implemented).
 
-## Provider-Type Classification (single source of truth)
+## Provider-Type Classification
 
-`utils/constants.py::PROVIDER_STORAGE_KIND` is the one canonical map of `provider_type → StorageKind`
-(folder vs object); `FOLDER_PROVIDERS`/`OBJECT_PROVIDERS`/`PROVIDER_TYPES` derive from it. The Provider
-DocType carries a hidden read-only `storage_kind` field (set in `validate`, kept live in the form via the
-whitelisted `get_provider_storage_kind`), so section `depends_on` and the client script reference
-`storage_kind`, never enumerated provider names. A parity test asserts the `provider_type` Select equals
-`PROVIDER_TYPES`. Once providers are registered (Phase 2/7), this map derives from the registry and the
-hand-maintained dict retires — see roadmap Phases 2 & 7.
+The `provider_type` **Select is the source of truth** for valid types. `utils/constants.py::
+PROVIDER_STORAGE_KIND` adds only the folder-vs-object classification (not expressible in the schema);
+`FOLDER_PROVIDERS`/`OBJECT_PROVIDERS` derive from it. The Provider DocType carries a hidden read-only
+`storage_kind` field (set in `validate`, kept live in the form via the whitelisted
+`get_provider_storage_kind`), so section `depends_on` and the client script reference `storage_kind`, never
+enumerated provider names. A test asserts the map keys match the Select options.
+
+## Identity & Config
+
+- **Providers are named by type** (`autoname` = `frappe.unscrub(provider_type)` → "Google Drive"); the type
+  is `set_only_once`. So there is **one provider config per type** — which pairs with the fallback model
+  (the fallback is a *different* type).
+- **Schedules are named by cadence** (`unscrub(schedule_type)` → "Daily"); `schedule_type` is `set_only_once`.
+  Backup types are inherited from Settings; the Schedule only sets *when* + *which provider*.
+- **Fallback provider:** `Settings.fallback_provider` — `backup_service.resolve_provider()` returns the
+  default provider when ready, else the fallback. Used by the auto-path, manual upload, and CLI. (Functional
+  once a second provider type is implemented, Phase 7/8.)
 
 ## Boundary Rule
 

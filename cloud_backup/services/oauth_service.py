@@ -15,7 +15,6 @@ from cloud_backup.providers.google_drive import (
 	DRIVE_SERVICE_VERSION,
 	register_domain,
 )
-from cloud_backup.utils.constants import DocType
 from cloud_backup.utils.exceptions import AuthenticationError
 
 _DEFAULT_TOKEN_TTL = 3600
@@ -40,7 +39,7 @@ def get_drive_oauth() -> GoogleOAuth:
 
 def get_authorization_url(provider: str) -> dict[str, str]:
 	"""Return the Google consent URL for the given provider record."""
-	frappe.has_permission(DocType.PROVIDER, "write", doc=provider, throw=True)
+	frappe.has_permission("Cloud Backup Provider", "write", doc=provider, throw=True)
 	oauth = get_drive_oauth()
 	state = {
 		"provider": provider,
@@ -53,7 +52,7 @@ def get_authorization_url(provider: str) -> dict[str, str]:
 
 def authorize_access(provider: str, code: str | None = None, **kwargs) -> None:
 	"""Shared-callback target: exchange the code and store Drive tokens."""
-	doc = frappe.get_doc(DocType.PROVIDER, provider)
+	doc = frappe.get_doc("Cloud Backup Provider", provider)
 	doc.check_permission("write")
 	tokens = get_drive_oauth().authorize(code) if code else {}
 	if not tokens.get("access_token"):

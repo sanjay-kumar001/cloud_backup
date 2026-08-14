@@ -15,6 +15,7 @@ from cloud_backup.providers.google_drive import (
 	DRIVE_SERVICE_VERSION,
 )
 from cloud_backup.services import oauth_service, provider_service
+from cloud_backup.tests.utils import make_provider
 
 
 class TestProviderService(FrappeTestCase):
@@ -26,17 +27,12 @@ class TestProviderService(FrappeTestCase):
 		self.assertTrue(DRIVE_SCOPE.endswith("drive.file"))
 
 	def _make_provider(self, expiry):
-		return frappe.get_doc(
-			{
-				"doctype": "Cloud Backup Provider",
-				"provider_name": frappe.generate_hash(length=8),
-				"provider_type": "google_drive",
-				"access_token": "old-access",
-				"refresh_token": "refresh-1",
-				"token_expiry": expiry,
-				"authentication_status": "Authorized",
-			}
-		).insert(ignore_permissions=True)
+		return make_provider(
+			"google_drive",
+			access_token="old-access",
+			refresh_token="refresh-1",
+			token_expiry=expiry,
+		)
 
 	def test_refresh_triggered_when_expired(self):
 		doc = self._make_provider(add_to_date(now_datetime(), hours=-1))

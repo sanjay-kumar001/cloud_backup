@@ -8,8 +8,10 @@ from __future__ import annotations
 import frappe
 from frappe.utils import add_to_date, get_datetime, now_datetime
 
+from cloud_backup.cloud_backup.doctype.cloud_backup_settings.cloud_backup_settings import (
+	get_cloud_backup_settings,
+)
 from cloud_backup.services import backup_service, log_service, provider_service
-from cloud_backup.utils.constants import DocType
 from cloud_backup.utils.exceptions import CloudBackupError
 
 SOURCE = "retention_service"
@@ -17,7 +19,7 @@ SOURCE = "retention_service"
 
 def run_cleanup(dry_run: bool = False) -> dict:
 	"""Apply the retention policy to managed remote files. Idempotent (NFR-14)."""
-	settings = frappe.get_single(DocType.SETTINGS)
+	settings = get_cloud_backup_settings()
 	result = {"deleted": 0, "candidates": 0, "dry_run": dry_run, "skipped": False}
 	if not settings.auto_delete_remote:
 		result["skipped"] = True
@@ -41,7 +43,7 @@ def run_cleanup(dry_run: bool = False) -> dict:
 				)
 				continue
 			frappe.db.set_value(
-				DocType.HISTORY, row["name"], {"remote_deleted": 1, "deleted_at": now_datetime()}
+				"Cloud Backup History", row["name"], {"remote_deleted": 1, "deleted_at": now_datetime()}
 			)
 			frappe.db.commit()
 			result["deleted"] += 1
@@ -58,7 +60,7 @@ def run_cleanup(dry_run: bool = False) -> dict:
 def _managed_providers() -> list[str]:
 	"""Providers that own at least one live managed remote file."""
 	return frappe.get_all(
-		DocType.HISTORY,
+		"Cloud Backup History",
 		filters={"status": "Completed", "remote_deleted": 0, "remote_file": ["is", "set"]},
 		distinct=True,
 		pluck="provider",
@@ -68,7 +70,7 @@ def _managed_providers() -> list[str]:
 def _managed_rows(provider: str) -> list[dict]:
 	"""Live managed uploads for a provider, newest first."""
 	return frappe.get_all(
-		DocType.HISTORY,
+		"Cloud Backup History",
 		filters={
 			"provider": provider,
 			"status": "Completed",
@@ -96,8 +98,8 @@ def _select_for_deletion(rows: list[dict], settings) -> list[dict]:
 
 def _write_last_cleanup(result: dict) -> None:
 	frappe.db.set_value(
-		DocType.SETTINGS,
-		DocType.SETTINGS,
+		"Cloud Backup Settings",
+		"Cloud Backup Settings",
 		{
 			"last_cleanup_timestamp": now_datetime(),
 			"last_cleanup_status": "Success",

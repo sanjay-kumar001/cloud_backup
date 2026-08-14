@@ -7,6 +7,8 @@
  "field_order": [
   "enabled",
   "default_provider",
+  "fallback_provider",
+  "gdrive_settings_note",
   "sb_auto",
   "automatic_upload",
   "verify_upload",
@@ -44,6 +46,18 @@
    "label": "Default Provider",
    "options": "Cloud Backup Provider",
    "description": "Active provider driving automatic uploads"
+  },
+  {
+   "fieldname": "fallback_provider",
+   "fieldtype": "Link",
+   "label": "Fallback Provider",
+   "options": "Cloud Backup Provider",
+   "description": "Used when the default provider is not configured/authorized"
+  },
+  {
+   "fieldname": "gdrive_settings_note",
+   "fieldtype": "HTML",
+   "options": "<p class=\"text-muted\">For a Google Drive provider, the OAuth Client ID/Secret are configured in <a href=\"/app/google-settings\">Google Settings</a>.</p>"
   },
   {
    "fieldname": "sb_auto",

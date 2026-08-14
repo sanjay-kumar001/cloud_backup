@@ -10,9 +10,12 @@ import time
 import frappe
 from frappe.utils import now_datetime
 
+from cloud_backup.cloud_backup.doctype.cloud_backup_settings.cloud_backup_settings import (
+	get_cloud_backup_settings,
+)
 from cloud_backup.services import log_service, notification_service, provider_service
 from cloud_backup.services.backup_service import ARTIFACT_LABEL
-from cloud_backup.utils.constants import UPLOAD_BACKOFF_SECONDS, UPLOAD_MAX_ATTEMPTS, DocType
+from cloud_backup.utils.constants import UPLOAD_BACKOFF_SECONDS, UPLOAD_MAX_ATTEMPTS
 from cloud_backup.utils.exceptions import CloudBackupError, InvalidConfiguration
 from cloud_backup.utils.file_utils import build_remote_filename
 
@@ -21,11 +24,11 @@ SOURCE = "jobs.upload_backup"
 
 def run(history: str, artifact: str | None = None, trigger: str = "manual") -> str:
 	"""Upload the artifact referenced by a History row; persist every transition."""
-	doc = frappe.get_doc(DocType.HISTORY, history)
+	doc = frappe.get_doc("Cloud Backup History", history)
 	started = time.monotonic()
 	_set(doc, status="Processing", started_at=now_datetime())
 	try:
-		provider_doc = frappe.get_doc(DocType.PROVIDER, doc.provider)
+		provider_doc = frappe.get_doc("Cloud Backup Provider", doc.provider)
 		target = provider_doc.destination_folder or provider_doc.root_folder
 		if not target:
 			raise InvalidConfiguration("Provider has no destination folder selected")
@@ -42,7 +45,7 @@ def run(history: str, artifact: str | None = None, trigger: str = "manual") -> s
 			file_size=result.get("size") or 0,
 			checksum=result.get("checksum"),
 		)
-		if frappe.get_single(DocType.SETTINGS).verify_upload:
+		if get_cloud_backup_settings().verify_upload:
 			_verify(doc, provider, result)
 		_set(doc, status="Completed", completed_at=now_datetime(), duration=_elapsed(started))
 		_update_settings(True, f"Uploaded {remote_name}")
@@ -119,7 +122,7 @@ def _set(doc, **fields) -> None:
 	frappe.publish_realtime(
 		"cloud_backup_history_update",
 		{"name": doc.name, "status": doc.status},
-		doctype=DocType.HISTORY,
+		doctype="Cloud Backup History",
 		docname=doc.name,
 	)
 
@@ -127,8 +130,8 @@ def _set(doc, **fields) -> None:
 def _update_settings(success: bool, message: str) -> None:
 	"""Write the last-upload status trio back onto Settings."""
 	frappe.db.set_value(
-		DocType.SETTINGS,
-		DocType.SETTINGS,
+		"Cloud Backup Settings",
+		"Cloud Backup Settings",
 		{
 			"last_upload_timestamp": now_datetime(),
 			"last_upload_status": "Success" if success else "Failed",

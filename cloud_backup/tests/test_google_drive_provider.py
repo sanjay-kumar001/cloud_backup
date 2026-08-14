@@ -6,7 +6,7 @@
 import unittest
 
 from cloud_backup.providers.google_drive.provider import GoogleDriveProvider
-from cloud_backup.utils.constants import ProviderType, StorageKind
+from cloud_backup.utils.constants import StorageKind
 from cloud_backup.utils.exceptions import (
 	AuthenticationError,
 	NetworkError,
@@ -71,7 +71,7 @@ def _provider(service, config=None):
 
 class TestGoogleDriveProvider(unittest.TestCase):
 	def test_class_metadata(self):
-		self.assertEqual(GoogleDriveProvider.provider_type, ProviderType.GOOGLE_DRIVE)
+		self.assertEqual(GoogleDriveProvider.provider_type, "google_drive")
 		self.assertEqual(GoogleDriveProvider.storage_kind, StorageKind.FOLDER)
 
 	def test_authenticate_requires_tokens(self):

@@ -8,6 +8,12 @@ from frappe.model.document import Document
 
 
 class CloudBackupSchedule(Document):
+	def autoname(self) -> None:
+		"""Name the record after the selected schedule type (e.g. Daily)."""
+		if not self.schedule_type:
+			frappe.throw(frappe._("Schedule Type is required"))
+		self.name = frappe.unscrub(self.schedule_type)
+
 	def validate(self) -> None:
 		"""Validate the cron expression for custom schedules."""
 		if self.schedule_type == "Custom" and self.frequency:

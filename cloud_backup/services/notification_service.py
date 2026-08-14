@@ -7,13 +7,15 @@ from __future__ import annotations
 
 import frappe
 
-from cloud_backup.utils.constants import DocType
+from cloud_backup.cloud_backup.doctype.cloud_backup_settings.cloud_backup_settings import (
+	get_cloud_backup_settings,
+)
 
 
 def notify(subject: str, message: str, force: bool = False) -> None:
 	"""In-app + email to System Managers when notifications are enabled. Never raises."""
 	try:
-		settings = frappe.get_single(DocType.SETTINGS)
+		settings = get_cloud_backup_settings()
 		if not settings.notifications_enabled and not force:
 			return
 		recipients = _recipients()
@@ -50,7 +52,7 @@ def _in_app(user: str, subject: str, message: str) -> None:
 			"type": "Alert",
 			"subject": subject,
 			"email_content": message,
-			"document_type": DocType.SETTINGS,
-			"document_name": DocType.SETTINGS,
+			"document_type": "Cloud Backup Settings",
+			"document_name": "Cloud Backup Settings",
 		}
 	).insert(ignore_permissions=True)

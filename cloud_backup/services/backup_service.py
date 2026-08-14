@@ -10,7 +10,10 @@ import os
 import frappe
 from frappe.utils.backups import fetch_latest_backups
 
-from cloud_backup.utils.constants import UPLOAD_QUEUE, UPLOAD_TIMEOUT, DocType
+from cloud_backup.cloud_backup.doctype.cloud_backup_settings.cloud_backup_settings import (
+	get_cloud_backup_settings,
+)
+from cloud_backup.utils.constants import UPLOAD_QUEUE, UPLOAD_TIMEOUT
 from cloud_backup.utils.exceptions import InvalidConfiguration
 
 # Backup artifacts to upload for each requested backup type.
@@ -75,21 +78,31 @@ def enqueue_for_schedule(schedule, odb, trigger: str = "schedule") -> list[str]:
 	"""Upload a schedule's backup to its provider, using the Settings backup types."""
 	if not is_provider_ready(schedule.provider):
 		return []
-	artifacts = selected_artifacts(frappe.get_single(DocType.SETTINGS))
+	artifacts = get_cloud_backup_settings().get_selected_artifacts()
 	return _enqueue_artifacts(
 		schedule.provider, artifacts, lambda a: getattr(odb, ARTIFACT_PATH_ATTR[a], None), trigger
 	)
 
 
+def resolve_provider(settings=None) -> str | None:
+	"""Return the default provider if ready, else the fallback if ready, else None."""
+	settings = settings or get_cloud_backup_settings()
+	if settings.default_provider and is_provider_ready(settings.default_provider):
+		return settings.default_provider
+	if settings.fallback_provider and is_provider_ready(settings.fallback_provider):
+		return settings.fallback_provider
+	return None
+
+
 def _auto_enqueue(path_for, trigger: str) -> list[str]:
 	"""Settings-gated auto-upload of selected artifacts, with dedupe."""
-	settings = frappe.get_single(DocType.SETTINGS)
+	settings = get_cloud_backup_settings()
 	if not (settings.enabled and settings.automatic_upload):
 		return []
-	provider = settings.default_provider
-	if not provider or not is_provider_ready(provider):
+	provider = resolve_provider(settings)
+	if not provider:
 		return []
-	return _enqueue_artifacts(provider, selected_artifacts(settings), path_for, trigger)
+	return _enqueue_artifacts(provider, settings.get_selected_artifacts(), path_for, trigger)
 
 
 def _enqueue_artifacts(provider: str, artifacts, path_for, trigger: str) -> list[str]:
@@ -108,7 +121,7 @@ def is_provider_ready(provider: str | None) -> bool:
 	if not provider:
 		return False
 	config = frappe.db.get_value(
-		DocType.PROVIDER,
+		"Cloud Backup Provider",
 		provider,
 		["authentication_status", "destination_folder", "root_folder"],
 		as_dict=True,
@@ -124,22 +137,10 @@ def already_uploaded(path: str, provider: str) -> bool:
 	"""True when a History row already owns this file for this provider (NFR-06)."""
 	return bool(
 		frappe.db.exists(
-			DocType.HISTORY,
+			"Cloud Backup History",
 			{"local_file": path, "provider": provider, "status": ["in", _ACTIVE_STATUSES]},
 		)
 	)
-
-
-def selected_artifacts(settings) -> set[str]:
-	"""Resolve artifact keys from the Settings upload-type toggles."""
-	keys: set[str] = set()
-	if settings.upload_full:
-		keys.update(("database", "public", "private"))
-	if settings.upload_database:
-		keys.add("database")
-	if settings.upload_files:
-		keys.update(("public", "private"))
-	return keys
 
 
 def upload_artifacts_sync(provider: str, artifacts, path_for, trigger: str = "cli") -> list[tuple[str, bool]]:
@@ -178,7 +179,7 @@ def _create_history(provider: str, backup_type: str, artifact: str, path: str) -
 	"""Insert a Queued History row and commit it (durable before enqueue)."""
 	history = frappe.get_doc(
 		{
-			"doctype": DocType.HISTORY,
+			"doctype": "Cloud Backup History",
 			"site": frappe.local.site,
 			"provider": provider,
 			"backup_type": backup_type,

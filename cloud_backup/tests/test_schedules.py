@@ -9,6 +9,7 @@ from frappe.utils import add_to_date, now_datetime
 
 from cloud_backup import tasks
 from cloud_backup.services import backup_service
+from cloud_backup.tests.utils import make_provider, make_schedule
 
 
 class _Sched:
@@ -47,23 +48,8 @@ class TestSchedules(FrappeTestCase):
 		tmp = frappe.get_site_path("private", "backups", "cb_sched.sql.gz")
 		with open(tmp, "wb") as f:
 			f.write(b"x" * 128)
-		provider = frappe.get_doc(
-			{
-				"doctype": "Cloud Backup Provider",
-				"provider_name": frappe.generate_hash(length=8),
-				"provider_type": "google_drive",
-				"destination_folder": "SF",
-				"authentication_status": "Authorized",
-			}
-		).insert(ignore_permissions=True)
-		schedule = frappe.get_doc(
-			{
-				"doctype": "Cloud Backup Schedule",
-				"schedule_name": "T " + frappe.generate_hash(length=6),
-				"provider": provider.name,
-				"schedule_type": "Daily",
-			}
-		).insert(ignore_permissions=True)
+		provider = make_provider("google_drive", destination_folder="SF")
+		schedule = make_schedule("Daily", provider=provider.name)
 
 		frappe.db.set_value(
 			"Cloud Backup Settings",

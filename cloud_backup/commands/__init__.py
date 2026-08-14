@@ -7,7 +7,9 @@ import click
 import frappe
 from frappe.commands import get_site
 
-from cloud_backup.utils.constants import DocType
+from cloud_backup.cloud_backup.doctype.cloud_backup_settings.cloud_backup_settings import (
+	get_cloud_backup_settings,
+)
 
 
 @click.group("cloud-backup", invoke_without_command=True)
@@ -71,9 +73,9 @@ def _upload(with_files: bool) -> int:
 
 	from cloud_backup.services import backup_service
 
-	provider = frappe.get_single(DocType.SETTINGS).default_provider
-	if not backup_service.is_provider_ready(provider):
-		click.secho("Provider is not configured/authorized or has no destination.", fg="red", err=True)
+	provider = backup_service.resolve_provider()
+	if not provider:
+		click.secho("No authorized provider with a destination (default or fallback).", fg="red", err=True)
 		return 1
 	odb = new_backup(ignore_files=not with_files)
 	artifacts = {"database"} | ({"public", "private"} if with_files else set())
@@ -92,11 +94,11 @@ def _upload(with_files: bool) -> int:
 
 
 def _test() -> int:
-	from cloud_backup.services import provider_service
+	from cloud_backup.services import backup_service, provider_service
 
-	provider = frappe.get_single(DocType.SETTINGS).default_provider
+	provider = backup_service.resolve_provider()
 	if not provider:
-		click.secho("No default provider set.", fg="red", err=True)
+		click.secho("No authorized provider (default or fallback).", fg="red", err=True)
 		return 1
 	result = provider_service.get_provider(provider).test_connection()
 	click.secho(result.get("message", ""), fg="green" if result.get("ok") else "red")
@@ -105,7 +107,7 @@ def _test() -> int:
 
 def _list(limit: int) -> int:
 	rows = frappe.get_all(
-		DocType.HISTORY,
+		"Cloud Backup History",
 		fields=["name", "backup_type", "status", "file_size", "completed_at"],
 		order_by="creation desc",
 		limit_page_length=limit,
@@ -132,9 +134,9 @@ def _cleanup() -> int:
 
 
 def _status() -> int:
-	settings = frappe.get_single(DocType.SETTINGS)
-	total = frappe.db.count(DocType.HISTORY)
-	failed = frappe.db.count(DocType.HISTORY, {"status": "Failed"})
+	settings = get_cloud_backup_settings()
+	total = frappe.db.count("Cloud Backup History")
+	failed = frappe.db.count("Cloud Backup History", {"status": "Failed"})
 	click.echo(f"Provider:    {settings.default_provider or '-'}")
 	click.echo(f"Enabled:     {bool(settings.enabled)}   Auto-upload: {bool(settings.automatic_upload)}")
 	click.echo(f"Last upload: {settings.last_upload_status or '-'} @ {settings.last_upload_timestamp or '-'}")
