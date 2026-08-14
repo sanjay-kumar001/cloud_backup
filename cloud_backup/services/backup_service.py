@@ -51,16 +51,38 @@ def enqueue_upload(provider: str, backup_type: str, trigger: str = "manual") -> 
 	"""Create Queued History rows for the latest backup and enqueue uploads."""
 	if backup_type not in TYPE_ARTIFACTS:
 		raise InvalidConfiguration(f"Unknown backup type '{backup_type}'")
+	keys = TYPE_ARTIFACTS[backup_type]
 	latest = find_latest_backup()
+	# The most recent on-disk backup may be database-only; generate the missing
+	# artifacts (incl. files) so the upload always honors the requested type.
+	if any(not _exists(latest.get(key)) for key in keys):
+		latest = _generate_backup(wants_files=bool({"public", "private"} & set(keys)))
 	names: list[str] = []
-	for key in TYPE_ARTIFACTS[backup_type]:
+	for key in keys:
 		path = latest.get(key)
-		if not path or not os.path.exists(path):
+		if not _exists(path):
 			continue
 		names.append(_create_and_enqueue(provider, backup_type, key, path, trigger))
 	if not names:
 		raise InvalidConfiguration("No backup file found to upload")
 	return names
+
+
+def _generate_backup(wants_files: bool) -> dict[str, str | None]:
+	"""Create a fresh Frappe backup and return its artifact paths."""
+	from frappe.utils.backups import new_backup
+
+	odb = new_backup(ignore_files=not wants_files, force=True)
+	return {
+		"database": odb.backup_path_db,
+		"public": odb.backup_path_files,
+		"private": odb.backup_path_private_files,
+	}
+
+
+def _exists(path: str | None) -> bool:
+	"""True when path is set and present on disk."""
+	return bool(path and os.path.exists(path))
 
 
 def enqueue_after_backup(odb, trigger: str = "auto") -> list[str]:

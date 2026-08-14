@@ -15,6 +15,11 @@ _SECRET_KEYS = ("token", "secret", "password", "client_id", "api_key", "credenti
 _REDACTED = "***"
 
 
+def get_logger():
+	"""Return the app's file logger (writes to logs/cloud_backup.log)."""
+	return frappe.logger("cloud_backup", allow_site=True, file_count=10)
+
+
 def write_log(
 	event: str,
 	message: str,
@@ -22,7 +27,9 @@ def write_log(
 	source: str = "",
 	details: dict | None = None,
 ) -> str:
-	"""Insert a Cloud Backup Log row; details are secret-scrubbed. Never raises."""
+	"""Insert a Cloud Backup Log row + emit to the file logger. Never raises."""
+	scrubbed = scrub_secrets(message)
+	_emit_to_file(level, event, source, scrubbed)
 	try:
 		doc = frappe.get_doc(
 			{
@@ -30,13 +37,23 @@ def write_log(
 				"event": event,
 				"level": level,
 				"source": source,
-				"message": scrub_secrets(message),
+				"message": scrubbed,
 				"details": json.dumps(scrub_secrets(details), indent=2, default=str) if details else None,
 			}
 		).insert(ignore_permissions=True)
 		return doc.name
 	except Exception:
 		return ""
+
+
+def _emit_to_file(level: str, event: str, source: str, message: str) -> None:
+	"""Mirror the entry into logs/cloud_backup.log at the matching level."""
+	try:
+		logger = get_logger()
+		line = f"[{source}] {event}: {message}"
+		getattr(logger, {"ERROR": "error", "WARNING": "warning"}.get(level, "info"))(line)
+	except Exception:
+		pass
 
 
 def scrub_secrets(value):
