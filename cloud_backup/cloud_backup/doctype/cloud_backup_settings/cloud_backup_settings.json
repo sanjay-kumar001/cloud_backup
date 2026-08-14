@@ -1,14 +1,15 @@
 {
  "actions": [],
- "app": "cloud_backup",
- "creation": "2026-08-10 00:00:00.000000",
+ "creation": "2026-08-10 00:00:00",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
   "enabled",
+  "section_break_tepv",
   "default_provider",
-  "fallback_provider",
   "gdrive_settings_note",
+  "column_break_rxxc",
+  "fallback_provider",
   "sb_auto",
   "automatic_upload",
   "verify_upload",
@@ -35,24 +36,24 @@
  "fields": [
   {
    "default": "1",
+   "description": "Global toggle for automatic uploads; manual upload always works",
    "fieldname": "enabled",
    "fieldtype": "Check",
-   "label": "Enabled",
-   "description": "Global toggle for automatic uploads; manual upload always works"
+   "label": "Enabled"
   },
   {
+   "description": "Active provider driving automatic uploads",
    "fieldname": "default_provider",
    "fieldtype": "Link",
    "label": "Default Provider",
-   "options": "Cloud Backup Provider",
-   "description": "Active provider driving automatic uploads"
+   "options": "Cloud Backup Provider"
   },
   {
+   "description": "Used when the default provider is not configured/authorized",
    "fieldname": "fallback_provider",
    "fieldtype": "Link",
    "label": "Fallback Provider",
-   "options": "Cloud Backup Provider",
-   "description": "Used when the default provider is not configured/authorized"
+   "options": "Cloud Backup Provider"
   },
   {
    "fieldname": "gdrive_settings_note",
@@ -105,10 +106,10 @@
   },
   {
    "default": "0",
+   "description": "Master switch for cloud-side cleanup; off keeps cloud backups indefinitely",
    "fieldname": "auto_delete_remote",
    "fieldtype": "Check",
-   "label": "Auto-Delete Remote Backups",
-   "description": "Master switch for cloud-side cleanup; off keeps cloud backups indefinitely"
+   "label": "Auto-Delete Remote Backups"
   },
   {
    "default": "Count",
@@ -125,18 +126,18 @@
   {
    "default": "10",
    "depends_on": "eval:doc.auto_delete_remote && doc.retention_type=='Count'",
+   "description": "Keep the latest N managed backups",
    "fieldname": "retention_count",
    "fieldtype": "Int",
-   "label": "Backups to Keep",
-   "description": "Keep the latest N managed backups"
+   "label": "Backups to Keep"
   },
   {
    "default": "0",
    "depends_on": "eval:doc.auto_delete_remote && doc.retention_type=='Age'",
+   "description": "Delete managed backups older than N days; 0 keeps indefinitely",
    "fieldname": "retention_days",
    "fieldtype": "Int",
-   "label": "Retention Days",
-   "description": "Delete managed backups older than N days; 0 keeps indefinitely"
+   "label": "Retention Days"
   },
   {
    "fieldname": "sb_notify",
@@ -190,11 +191,19 @@
    "label": "Last Cleanup Status",
    "options": "\nSuccess\nFailed",
    "read_only": 1
+  },
+  {
+   "fieldname": "section_break_tepv",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_rxxc",
+   "fieldtype": "Column Break"
   }
  ],
  "issingle": 1,
  "links": [],
- "modified": "2026-08-10 00:00:00.000000",
+ "modified": "2026-08-14 14:45:02.790848",
  "modified_by": "Administrator",
  "module": "Cloud Backup",
  "name": "Cloud Backup Settings",
@@ -207,6 +216,7 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []

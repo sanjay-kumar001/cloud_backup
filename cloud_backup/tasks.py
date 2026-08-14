@@ -25,6 +25,20 @@ def auto_upload_fallback() -> None:
 	backup_service.auto_enqueue_latest(trigger="fallback")
 
 
+def check_storage_quota() -> None:
+	"""Warn System Managers when a provider's storage nears its quota (FR-29)."""
+	from cloud_backup.services import dashboard_service, notification_service
+
+	for entry in dashboard_service.get_storage_usage():
+		if not entry.get("warn"):
+			continue
+		pct = round((entry.get("percent") or 0) * 100, 1)
+		notification_service.notify(
+			f"Cloud Backup storage warning: {entry['provider']}",
+			f"{entry['provider']} storage is {pct}% full.",
+		)
+
+
 def run_due_schedules() -> None:
 	"""Run every enabled schedule whose cadence is due."""
 	now = now_datetime()

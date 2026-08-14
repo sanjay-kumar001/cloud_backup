@@ -50,6 +50,14 @@ def status(ctx):
 	_dispatch(ctx, _status)
 
 
+@cloud_backup.command("restore")
+@click.argument("history")
+@click.pass_context
+def restore(ctx, history):
+	"""Download a cloud backup into private/backups for bench restore."""
+	_dispatch(ctx, lambda: _restore(history))
+
+
 commands = [cloud_backup]
 
 
@@ -130,6 +138,16 @@ def _cleanup() -> int:
 		click.secho("Cleanup skipped (auto_delete_remote is off).", fg="yellow")
 		return 0
 	click.secho(f"Deleted {result['deleted']} of {result['candidates']} candidate(s).", fg="green")
+	return 0
+
+
+def _restore(history: str) -> int:
+	from cloud_backup.services import restore_service
+
+	result = restore_service.download_backup(history)
+	click.secho(f"Downloaded {result['filename']} ({result['size']} bytes)", fg="green")
+	click.echo(f"Saved to: {result['local_path']}")
+	click.echo(f"Restore with: bench --site {frappe.local.site} restore {result['local_path']}")
 	return 0
 
 

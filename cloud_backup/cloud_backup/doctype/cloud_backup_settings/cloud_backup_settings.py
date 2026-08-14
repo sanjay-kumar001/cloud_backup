@@ -8,6 +8,34 @@ from frappe.model.document import Document
 
 
 class CloudBackupSettings(Document):
+	# begin: auto-generated types
+	# This code is auto-generated. Do not modify anything in this block.
+
+	from typing import TYPE_CHECKING
+
+	if TYPE_CHECKING:
+		from frappe.types import DF
+
+		auto_delete_remote: DF.Check
+		automatic_upload: DF.Check
+		default_provider: DF.Link | None
+		enabled: DF.Check
+		fallback_provider: DF.Link | None
+		last_cleanup_status: DF.Literal["", "Success", "Failed"]
+		last_cleanup_timestamp: DF.Datetime | None
+		last_upload_message: DF.SmallText | None
+		last_upload_status: DF.Literal["", "Success", "Failed"]
+		last_upload_timestamp: DF.Datetime | None
+		notifications_enabled: DF.Check
+		retention_count: DF.Int
+		retention_days: DF.Int
+		retention_type: DF.Literal["Count", "Age"]
+		upload_database: DF.Check
+		upload_files: DF.Check
+		upload_full: DF.Check
+		verify_upload: DF.Check
+	# end: auto-generated types
+
 	def validate(self) -> None:
 		"""Normalize retention inputs against the selected policy."""
 		self.validate_retention()

@@ -1,0 +1,23 @@
+{
+ "app": "cloud_backup",
+ "bg_color": "gray",
+ "creation": "2026-08-14 12:16:36.699990",
+ "docstatus": 0,
+ "doctype": "Desktop Icon",
+ "hidden": 0,
+ "icon": "cloud",
+ "icon_type": "Link",
+ "idx": 0,
+ "label": "Cloud Backup",
+ "link_to": "Cloud Backup",
+ "link_type": "Workspace Sidebar",
+ "logo_url": "/assets/cloud_backup/images/icon.png",
+ "modified": "2026-08-14 15:22:47.384914",
+ "modified_by": "Administrator",
+ "name": "Cloud Backup",
+ "owner": "Administrator",
+ "restrict_removal": 1,
+ "roles": [],
+ "sidebar": "Cloud Backup",
+ "standard": 1
+}

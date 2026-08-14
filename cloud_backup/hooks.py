@@ -29,7 +29,10 @@ scheduler_events = {
 		"cloud_backup.tasks.auto_upload_fallback",
 		"cloud_backup.tasks.run_due_schedules",
 	],
-	"daily": ["cloud_backup.jobs.cleanup_backup.run"],
+	"daily": [
+		"cloud_backup.jobs.cleanup_backup.run",
+		"cloud_backup.tasks.check_storage_quota",
+	],
 }
 
 # Each item in the list will be shown as an app in the apps page
