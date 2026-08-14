@@ -6,11 +6,15 @@
 from __future__ import annotations
 
 from cloud_backup.providers.base import CloudBackupProvider
+from cloud_backup.providers.dropbox.provider import DropboxProvider
 from cloud_backup.providers.google_drive.provider import GoogleDriveProvider
+from cloud_backup.providers.onedrive.provider import OneDriveProvider
 from cloud_backup.utils.exceptions import InvalidConfiguration
 
 PROVIDER_REGISTRY: dict[str, type[CloudBackupProvider]] = {
 	GoogleDriveProvider.provider_type: GoogleDriveProvider,
+	OneDriveProvider.provider_type: OneDriveProvider,
+	DropboxProvider.provider_type: DropboxProvider,
 }
 
 

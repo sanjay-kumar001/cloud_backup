@@ -7,15 +7,18 @@ from __future__ import annotations
 
 import frappe
 
-from cloud_backup.services import oauth_service, provider_service
+from cloud_backup.services import oauth2_service, oauth_service, provider_service
 from cloud_backup.utils.exceptions import CloudBackupError
 
 
 @frappe.whitelist()
 def authorize(provider: str) -> dict[str, str]:
-	"""Return the Google consent URL for the provider."""
+	"""Return the provider's OAuth consent URL (Google or generic OAuth2)."""
 	frappe.has_permission("Cloud Backup Provider", "write", doc=provider, throw=True)
-	return oauth_service.get_authorization_url(provider)
+	provider_type = frappe.db.get_value("Cloud Backup Provider", provider, "provider_type")
+	if provider_type == "google_drive":
+		return oauth_service.get_authorization_url(provider)
+	return oauth2_service.get_authorization_url(provider)
 
 
 @frappe.whitelist()

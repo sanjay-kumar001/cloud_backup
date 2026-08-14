@@ -1,13 +1,12 @@
 {
  "actions": [],
- "app": "cloud_backup",
- "autoname": "",
- "creation": "2026-08-10 00:00:00.000000",
+ "creation": "2026-08-10 00:00:00",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
   "provider_type",
   "enabled",
+  "column_break_ssry",
   "authentication_status",
   "storage_kind",
   "sb_credentials",
@@ -18,12 +17,16 @@
   "access_token",
   "refresh_token",
   "token_expiry",
+  "section_break_hdla",
+  "oauth2_redirect_note",
   "sb_destination",
   "root_folder",
+  "column_break_xqrp",
   "destination_folder",
   "folder_name_display",
   "sb_s3",
   "bucket",
+  "column_break_yjen",
   "region"
  ],
  "fields": [
@@ -70,7 +73,7 @@
    "fieldname": "gdrive_credentials_note",
    "fieldtype": "HTML",
    "label": "Google Drive Credentials Note",
-   "options": "<p class=\"text-muted\">Google Drive uses the Client ID and Client Secret from <a href=\"/app/google-settings\">Google Settings</a>. No credentials are needed here — <a href=\"#\" class=\"cb-authorize-link\"><b>Authorize</b></a> with Google.</p>"
+   "options": "<p class=\"text-muted\">Google Drive uses the Client ID and Client Secret from <a href=\"/app/google-settings\">Google Settings</a>. No credentials are needed here \u2014 <a href=\"#\" class=\"cb-authorize-link\"><b>Authorize</b></a> with Google.</p>"
   },
   {
    "depends_on": "eval:doc.provider_type && doc.provider_type!='google_drive'",
@@ -83,6 +86,12 @@
    "fieldname": "client_secret",
    "fieldtype": "Password",
    "label": "Client Secret"
+  },
+  {
+   "depends_on": "eval:['onedrive','dropbox'].includes(doc.provider_type)",
+   "fieldname": "oauth2_redirect_note",
+   "fieldtype": "HTML",
+   "label": "OAuth Redirect URI"
   },
   {
    "fieldname": "cb_credentials",
@@ -114,16 +123,16 @@
    "label": "Destination"
   },
   {
+   "description": "Root folder ID or path to browse from",
    "fieldname": "root_folder",
    "fieldtype": "Data",
-   "label": "Root Folder",
-   "description": "Root folder ID or path to browse from"
+   "label": "Root Folder"
   },
   {
+   "description": "Selected destination folder ID or path",
    "fieldname": "destination_folder",
    "fieldtype": "Data",
-   "label": "Destination Folder",
-   "description": "Selected destination folder ID or path"
+   "label": "Destination Folder"
   },
   {
    "fieldname": "folder_name_display",
@@ -146,10 +155,26 @@
    "fieldname": "region",
    "fieldtype": "Data",
    "label": "Region"
+  },
+  {
+   "fieldname": "column_break_ssry",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_xqrp",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_yjen",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_hdla",
+   "fieldtype": "Section Break"
   }
  ],
  "links": [],
- "modified": "2026-08-10 00:00:00.000000",
+ "modified": "2026-08-14 14:48:21.954625",
  "modified_by": "Administrator",
  "module": "Cloud Backup",
  "name": "Cloud Backup Provider",
@@ -168,6 +193,7 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],

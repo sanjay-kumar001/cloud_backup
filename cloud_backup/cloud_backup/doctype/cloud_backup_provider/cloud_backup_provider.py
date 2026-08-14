@@ -15,6 +15,30 @@ from cloud_backup.utils.constants import (
 
 
 class CloudBackupProvider(Document):
+	# begin: auto-generated types
+	# This code is auto-generated. Do not modify anything in this block.
+
+	from typing import TYPE_CHECKING
+
+	if TYPE_CHECKING:
+		from frappe.types import DF
+
+		access_token: DF.Password | None
+		authentication_status: DF.Literal["Not Configured", "Authorized", "Expired", "Failed"]
+		bucket: DF.Data | None
+		client_id: DF.Password | None
+		client_secret: DF.Password | None
+		destination_folder: DF.Data | None
+		enabled: DF.Check
+		folder_name_display: DF.Data | None
+		provider_type: DF.Literal["google_drive", "dropbox", "onedrive", "amazon_s3"]
+		refresh_token: DF.Password | None
+		region: DF.Data | None
+		root_folder: DF.Data | None
+		storage_kind: DF.Data | None
+		token_expiry: DF.Datetime | None
+	# end: auto-generated types
+
 	def autoname(self) -> None:
 		"""Name the record after the selected provider type (e.g. Google Drive)."""
 		if not self.provider_type:

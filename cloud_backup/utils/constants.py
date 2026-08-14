@@ -11,6 +11,12 @@ UPLOAD_CHUNK_SIZE = 5 * 1024 * 1024
 UPLOAD_MAX_ATTEMPTS = 4
 UPLOAD_BACKOFF_SECONDS = (2, 5, 10)
 
+# Outbound provider-API request timeout for light metadata/connection calls.
+HTTP_TIMEOUT = 30
+
+# Fraction of quota used at/above which the dashboard warns (FR-29).
+QUOTA_WARN_THRESHOLD = 0.9
+
 
 class StorageKind:
 	"""How a provider addresses backups: folder tree vs object store."""

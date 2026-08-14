@@ -57,5 +57,9 @@ class CloudBackupProvider(ABC):
 		"""Delete the remote file identified by file_id."""
 
 	@abstractmethod
+	def download_file(self, file_id: str, local_path: str) -> str:
+		"""Stream the remote file into local_path; return local_path."""
+
+	@abstractmethod
 	def get_storage_usage(self) -> dict[str, Any]:
 		"""Return {used, total, available} where the provider exposes quota."""

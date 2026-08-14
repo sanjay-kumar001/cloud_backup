@@ -7,6 +7,19 @@ frappe.ui.form.on("Cloud Backup Provider", {
 		frm.trigger("render_actions");
 		frm.trigger("flash_authorization_result");
 		frm.trigger("bind_authorize_link");
+		frm.trigger("render_redirect_note");
+	},
+
+	render_redirect_note(frm) {
+		const field = frm.get_field("oauth2_redirect_note");
+		if (!field || !["onedrive", "dropbox"].includes(frm.doc.provider_type)) {
+			return;
+		}
+		const uri = `${window.location.origin}/api/method/cloud_backup.services.oauth2_service.callback`;
+		field.$wrapper.html(
+			`<p class="text-muted">${__("Register this exact redirect URI in the provider's app console:")}</p>` +
+				`<pre style="white-space:pre-wrap;">${frappe.utils.escape_html(uri)}</pre>`
+		);
 	},
 
 	bind_authorize_link(frm) {
@@ -65,18 +78,24 @@ frappe.ui.form.on("Cloud Backup Provider", {
 	},
 
 	flash_authorization_result(frm) {
-		// The shared Google callback appends cb_authorized=1 whenever Google
-		// returned no error, even if the token exchange failed — so trust the
-		// persisted authentication_status, not the URL param.
+		// Callbacks append cb_authorized=1 when the provider returned no error,
+		// even if the token exchange failed — so trust the persisted
+		// authentication_status, not the URL param.
 		if (frappe.utils.get_url_arg("cb_authorized") === null) {
 			return;
 		}
 		const ok = frm.doc.authentication_status === "Authorized";
-		frappe.show_alert({
-			message: ok
-				? __("Google Drive authorized")
-				: __("Authorization failed — check Google Settings client secret and the Error Log"),
-			indicator: ok ? "green" : "red",
+		if (ok) {
+			frappe.show_alert({ message: __("Provider authorized"), indicator: "green" });
+			return;
+		}
+		const reason = frappe.utils.get_url_arg("cb_reason");
+		frappe.msgprint({
+			title: __("Authorization failed"),
+			indicator: "red",
+			message: reason
+				? frappe.utils.escape_html(decodeURIComponent(reason))
+				: __("Check the credentials, the registered redirect URI, and Cloud Backup Log."),
 		});
 	},
 

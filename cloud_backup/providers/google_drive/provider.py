@@ -188,6 +188,22 @@ class GoogleDriveProvider(CloudBackupProvider):
 		except (HttpError, RequestException) as exc:
 			raise self._map_error(exc)
 
+	def download_file(self, file_id: str, local_path: str) -> str:
+		from googleapiclient.http import MediaIoBaseDownload
+
+		try:
+			request = self.service.files().get_media(fileId=file_id)
+			with open(local_path, "wb") as handle:
+				downloader = MediaIoBaseDownload(handle, request, chunksize=UPLOAD_CHUNK_SIZE)
+				done = False
+				while not done:
+					_status, done = downloader.next_chunk()
+					if _status and self._progress:
+						self._progress(_status.progress())
+		except (HttpError, RequestException) as exc:
+			raise self._map_error(exc)
+		return local_path
+
 	def _resolve_parent(self, parent_id: str | None) -> str:
 		return parent_id or self.config.get("root_folder") or "root"
 
