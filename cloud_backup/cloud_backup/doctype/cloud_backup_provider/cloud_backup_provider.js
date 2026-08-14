@@ -6,6 +6,22 @@ frappe.ui.form.on("Cloud Backup Provider", {
 		frm.trigger("set_status_indicator");
 		frm.trigger("render_actions");
 		frm.trigger("flash_authorization_result");
+		frm.trigger("bind_authorize_link");
+	},
+
+	bind_authorize_link(frm) {
+		const field = frm.get_field("gdrive_credentials_note");
+		if (!field) {
+			return;
+		}
+		field.$wrapper.find(".cb-authorize-link").off("click").on("click", (e) => {
+			e.preventDefault();
+			if (frm.is_new()) {
+				frappe.msgprint(__("Save the provider first, then Authorize."));
+				return;
+			}
+			cloud_backup.provider.authorize(frm);
+		});
 	},
 
 	provider_type(frm) {

@@ -70,7 +70,7 @@
    "fieldname": "gdrive_credentials_note",
    "fieldtype": "HTML",
    "label": "Google Drive Credentials Note",
-   "options": "<p class=\"text-muted\">Google Drive uses the Client ID and Client Secret from <a href=\"/app/google-settings\">Google Settings</a>. No credentials are needed here — click <b>Authorize</b> below.</p>"
+   "options": "<p class=\"text-muted\">Google Drive uses the Client ID and Client Secret from <a href=\"/app/google-settings\">Google Settings</a>. No credentials are needed here — <a href=\"#\" class=\"cb-authorize-link\"><b>Authorize</b></a> with Google.</p>"
   },
   {
    "depends_on": "eval:doc.provider_type && doc.provider_type!='google_drive'",
@@ -101,9 +101,10 @@
    "read_only": 1
   },
   {
+   "description": "When the current access token expires (~1h). Auto-refreshed; your authorization does not expire.",
    "fieldname": "token_expiry",
    "fieldtype": "Datetime",
-   "label": "Token Expiry",
+   "label": "Access Token Expiry",
    "read_only": 1
   },
   {
