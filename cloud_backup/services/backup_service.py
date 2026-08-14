@@ -142,8 +142,40 @@ def selected_artifacts(settings) -> set[str]:
 	return keys
 
 
+def upload_artifacts_sync(provider: str, artifacts, path_for, trigger: str = "cli") -> list[tuple[str, bool]]:
+	"""Upload artifacts inline (for CLI); returns (history, ok) per artifact."""
+	from cloud_backup.jobs import upload_backup
+
+	results: list[tuple[str, bool]] = []
+	for artifact in artifacts:
+		path = path_for(artifact)
+		if not path or not os.path.exists(path) or already_uploaded(path, provider):
+			continue
+		name = _create_history(provider, ARTIFACT_TYPE[artifact], artifact, path)
+		try:
+			upload_backup.run(name, artifact=artifact, trigger=trigger)
+			results.append((name, True))
+		except Exception:
+			results.append((name, False))
+	return results
+
+
 def _create_and_enqueue(provider: str, backup_type: str, artifact: str, path: str, trigger: str) -> str:
 	"""Create a Queued History row and enqueue its upload job."""
+	name = _create_history(provider, backup_type, artifact, path)
+	frappe.enqueue(
+		"cloud_backup.jobs.upload_backup.run",
+		queue=UPLOAD_QUEUE,
+		timeout=UPLOAD_TIMEOUT,
+		history=name,
+		artifact=artifact,
+		trigger=trigger,
+	)
+	return name
+
+
+def _create_history(provider: str, backup_type: str, artifact: str, path: str) -> str:
+	"""Insert a Queued History row and commit it (durable before enqueue)."""
 	history = frappe.get_doc(
 		{
 			"doctype": DocType.HISTORY,
@@ -158,12 +190,4 @@ def _create_and_enqueue(provider: str, backup_type: str, artifact: str, path: st
 	# Commit before enqueue so the worker always sees the row — the CLI backup
 	# path (bench backup) does not auto-commit like a web request (NFR-17).
 	frappe.db.commit()
-	frappe.enqueue(
-		"cloud_backup.jobs.upload_backup.run",
-		queue=UPLOAD_QUEUE,
-		timeout=UPLOAD_TIMEOUT,
-		history=history.name,
-		artifact=artifact,
-		trigger=trigger,
-	)
 	return history.name

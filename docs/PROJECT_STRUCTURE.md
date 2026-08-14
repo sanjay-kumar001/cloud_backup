@@ -15,6 +15,7 @@ cloud_backup/
 ├── __init__.py                      # import-time bootstrap: apply governed core patches
 ├── hooks.py                         # wiring: before_request/before_job/after_migrate, scheduler_events
 ├── tasks.py                         # scheduler entrypoints: auto_upload_fallback, run_due_schedules
+├── commands/                        # bench cloud-backup CLI (click group)
 ├── cloud_backup/                    # module "Cloud Backup"
 │   └── doctype/
 │       ├── cloud_backup_settings/   # Single — global settings
@@ -138,6 +139,18 @@ core convention — no core files edited. Because the `drive` domain is not pre-
   failures when `Settings.notifications_enabled`.
 - **Logging.** `log_service.write_log` records events to **Cloud Backup Log** with secrets scrubbed
   (`scrub_secrets` redacts token/secret/password/client_id keys and masks token-like strings, NFR-10/34).
+
+## CLI (`bench cloud-backup`)
+
+`commands/__init__.py` registers a `click` group (discovered via `<app>.commands.commands`) that reuses the
+Phase 3–5 services — no logic duplication. Uploads run **synchronously** (`backup_service.upload_artifacts_sync`)
+so exit codes reflect the real result (FR-55).
+
+- `bench --site <s> cloud-backup [--with-files]` — create a backup + upload (db, or db+files).
+- `... cloud-backup test` — provider connectivity (non-zero when broken).
+- `... cloud-backup list [--limit N]` — recent History rows.
+- `... cloud-backup cleanup` — run retention now.
+- `... cloud-backup status` — provider, toggles, last-upload status, counts (non-zero if last upload failed).
 
 ## Delivered DocTypes
 
