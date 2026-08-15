@@ -13,6 +13,7 @@
 [![ERPNext](https://img.shields.io/badge/ERPNext-v16+-green.svg)](https://erpnext.com/)
 
 ---
+![Cloud Backup](screenshots/cloud_backup.png)
 
 ## Features
 
