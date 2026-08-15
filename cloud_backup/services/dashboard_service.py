@@ -12,6 +12,29 @@ from cloud_backup.utils.constants import QUOTA_WARN_THRESHOLD
 from cloud_backup.utils.exceptions import CloudBackupError
 
 
+def get_overview() -> dict:
+	"""Return health status + per-provider storage for the Health page."""
+	from cloud_backup.cloud_backup.doctype.cloud_backup_settings.cloud_backup_settings import (
+		get_cloud_backup_settings,
+	)
+
+	settings = get_cloud_backup_settings()
+	if not settings.enabled:
+		health = "Disabled"
+	elif settings.last_upload_status == "Failed":
+		health = "Attention"
+	elif not settings.default_provider:
+		health = "Unconfigured"
+	else:
+		health = "Healthy"
+	return {
+		"health": health,
+		"provider": settings.default_provider,
+		"automatic_upload": bool(settings.automatic_upload),
+		"storage": get_storage_usage(),
+	}
+
+
 def get_storage_usage() -> list[dict]:
 	"""Return per-provider storage utilization with a threshold-breach flag."""
 	out: list[dict] = []

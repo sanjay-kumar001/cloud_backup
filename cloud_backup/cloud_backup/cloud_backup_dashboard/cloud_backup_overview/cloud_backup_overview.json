@@ -8,24 +8,17 @@
   },
   {
    "card": "Cloud Backup Failed Uploads"
-  },
-  {
-   "card": "Cloud Backup Data Uploaded"
   }
  ],
  "chart_options": "{}",
  "charts": [
   {
-   "chart": "Cloud Backup Uploads by Status",
+   "chart": "Uploads by Status",
    "width": "Half"
   },
   {
-   "chart": "Cloud Backup Upload Trend",
+   "chart": "Upload Trend",
    "width": "Half"
-  },
-  {
-   "chart": "Cloud Backup Storage Usage",
-   "width": "Full"
   }
  ],
  "creation": "2026-08-15 00:00:00.000000",
@@ -35,7 +28,7 @@
  "idx": 0,
  "is_default": 0,
  "is_standard": 1,
- "modified": "2026-08-15 14:00:00.000000",
+ "modified": "2026-08-15 15:00:00.000000",
  "modified_by": "Administrator",
  "module": "Cloud Backup",
  "name": "Cloud Backup Overview",
