@@ -85,24 +85,23 @@ frappe.pages["cloud-backup-dashboard"].on_page_load = function (wrapper) {
 
 	function summary_row(s) {
 		const days = s.days || 7;
-		const $wrap = $(
-			`<div style="margin-bottom:16px;"><div class="text-muted" ` +
-				`style="font-size:12px;margin-bottom:6px;">${__("Last {0} days", [days])}</div></div>`
-		);
-		const $row = $('<div class="row"></div>').appendTo($wrap);
-		$row.append(stat_tile(__("Total Uploads"), s.total || 0, "", TILE_BG.total));
-		$row.append(stat_tile(__("Completed"), s.completed || 0, "text-success", TILE_BG.completed));
+		const window = __("Last {0} days", [days]);
+		const $row = $('<div class="row" style="margin-bottom:16px;"></div>');
+		$row.append(stat_tile(__("Total Uploads"), window, s.total || 0, "", TILE_BG.total));
+		$row.append(stat_tile(__("Completed"), window, s.completed || 0, "text-success", TILE_BG.completed));
 		$row.append(
-			stat_tile(__("Failed"), s.failed || 0, s.failed ? "text-danger" : "", TILE_BG.failed)
+			stat_tile(__("Failed"), window, s.failed || 0, s.failed ? "text-danger" : "", TILE_BG.failed)
 		);
-		return $wrap;
+		return $row;
 	}
 
-	function stat_tile(label, value, cls, bg) {
+	function stat_tile(label, window, value, cls, bg) {
 		return $(
 			`<div class="col-sm-4"><div class="cb-tile" style="border:1px solid var(--border-color);` +
 				`border-radius:8px;padding:14px 16px;background:${bg};">` +
-				`<div class="text-muted" style="font-size:12px;">${label}</div>` +
+				`<div style="display:flex;justify-content:space-between;align-items:baseline;">` +
+				`<span class="text-muted" style="font-size:12px;">${label}</span>` +
+				`<span class="text-muted" style="font-size:11px;">${window}</span></div>` +
 				`<div class="${cls}" style="font-size:26px;font-weight:600;">${value}</div></div></div>`
 		);
 	}
@@ -157,7 +156,12 @@ frappe.pages["cloud-backup-dashboard"].on_page_load = function (wrapper) {
 	}
 
 	function trend_section(trend) {
-		const $col = $(`<div class="col-md-6"><h5>${__("Upload Trend")}</h5></div>`);
+		const days = (trend.labels || []).length || 7;
+		const $col = $(
+			`<div class="col-md-6"><h5>${__("Upload Trend")} ` +
+				`<span class="text-muted" style="font-size:12px;font-weight:400;">` +
+				`${__("Last {0} days", [days])}</span></h5></div>`
+		);
 		if (!trend.labels || !trend.labels.length) {
 			$col.append(`<div class="text-muted">${__("No data.")}</div>`);
 			return $col;
