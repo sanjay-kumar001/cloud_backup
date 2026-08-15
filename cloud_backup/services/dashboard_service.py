@@ -12,7 +12,7 @@ from cloud_backup.services import provider_service
 from cloud_backup.utils.constants import QUOTA_WARN_THRESHOLD
 from cloud_backup.utils.exceptions import CloudBackupError
 
-RECENT_LIMIT = 10
+RECENT_LIMIT = 7
 TREND_DAYS = 14
 
 
