@@ -73,9 +73,8 @@ cloud_backup.settings.upload_latest = function (frm) {
 				.xcall("cloud_backup.api.backup.upload_latest", { backup_type })
 				.then((r) => {
 					frappe.show_alert({
-						message: __("Queued {0} upload(s): {1}", [
-							r.history.length,
-							r.history.join(", "),
+						message: __("Backup queued in the background ({0}). See Cloud Backup History.", [
+							r.backup_type,
 						]),
 						indicator: "blue",
 					});

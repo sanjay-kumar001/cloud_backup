@@ -18,7 +18,7 @@ from cloud_backup.utils.constants import UPLOAD_QUEUE, UPLOAD_TIMEOUT
 
 @frappe.whitelist()
 def upload_latest(backup_type: str | None = None) -> dict:
-	"""Validate config and enqueue upload of the latest backup; return History names."""
+	"""Validate config and hand backup generation + upload to a background job."""
 	frappe.has_permission("Cloud Backup Settings", "write", throw=True)
 	settings = get_cloud_backup_settings()
 	provider = backup_service.resolve_provider(settings)
@@ -27,10 +27,18 @@ def upload_latest(backup_type: str | None = None) -> dict:
 			frappe._("No authorized provider with a destination is configured (default or fallback)")
 		)
 
-	names = backup_service.enqueue_upload(
-		provider, backup_type or _default_backup_type(settings), trigger="manual"
+	# Generating a backup can be slow on large sites, so run it in a worker
+	# (not inline in the web request).
+	bt = backup_type or _default_backup_type(settings)
+	frappe.enqueue(
+		"cloud_backup.services.backup_service.enqueue_upload",
+		queue=UPLOAD_QUEUE,
+		timeout=UPLOAD_TIMEOUT,
+		provider=provider,
+		backup_type=bt,
+		trigger="manual",
 	)
-	return {"history": names}
+	return {"queued": True, "backup_type": bt}
 
 
 @frappe.whitelist()
