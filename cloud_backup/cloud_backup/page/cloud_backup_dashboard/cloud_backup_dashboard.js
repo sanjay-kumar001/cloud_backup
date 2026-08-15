@@ -148,26 +148,36 @@ frappe.pages["cloud-backup-dashboard"].on_page_load = function (wrapper) {
 		);
 	}
 
+	const STORE_CARD =
+		"border:1px solid var(--border-color);border-radius:8px;padding:12px 14px;flex:1 1 0;min-width:180px;";
+
 	function storage_card(e) {
 		const name = frappe.utils.escape_html(e.provider);
-		if (!e.ok || e.percent === null || e.percent === undefined) {
+		if (!e.ok) {
 			return $(
-				`<div class="cb-store" style="border:1px solid var(--border-color);border-radius:8px;` +
-					`padding:12px 14px;flex:1 1 0;min-width:180px;display:flex;align-items:center;">` +
+				`<div class="cb-store" style="${STORE_CARD}display:flex;align-items:center;">` +
 					`${provider_logo(e)}<div><b>${name}</b> ` +
 					`<span class="text-muted">${frappe.utils.escape_html(
-						e.message || __("quota unavailable")
+						e.message || __("unavailable")
 					)}</span></div></div>`
+			);
+		}
+		const header =
+			`<div style="display:flex;justify-content:space-between;align-items:center;">` +
+			`<span style="display:flex;align-items:center;">${provider_logo(e)}<b>${name}</b></span>`;
+		// Object stores (S3) report bytes used but no account quota (percent null).
+		if (e.percent === null || e.percent === undefined) {
+			return $(
+				`<div class="cb-store" style="${STORE_CARD}">${header}</div>` +
+					`<div class="text-muted" style="font-size:12px;margin:6px 0 0;">` +
+					`${fmt_bytes(e.used)} ${__("used")} · ${__("no quota limit")}</div></div>`
 			);
 		}
 		const pct = Math.min(100, Math.round(e.percent * 100));
 		const bar = e.warn ? "progress-bar-danger" : "progress-bar-success";
 		return $(
-			`<div class="cb-store" style="border:1px solid var(--border-color);border-radius:8px;` +
-				`padding:12px 14px;flex:1 1 0;min-width:180px;">` +
-				`<div style="display:flex;justify-content:space-between;align-items:center;">` +
-				`<span style="display:flex;align-items:center;">${provider_logo(e)}<b>${name}</b></span>` +
-				`${e.warn ? `<span class="indicator-pill red">${__("Near limit")}</span>` : ""}</div>` +
+			`<div class="cb-store" style="${STORE_CARD}">` +
+				`${header}${e.warn ? `<span class="indicator-pill red">${__("Near limit")}</span>` : ""}</div>` +
 				`<div class="text-muted" style="font-size:12px;margin:6px 0;">${pct}% · ` +
 				`${fmt_bytes(e.used)} / ${e.total ? fmt_bytes(e.total) : "∞"}</div>` +
 				`<div class="progress" style="height:10px;">` +
