@@ -14,9 +14,6 @@ from cloud_backup.providers.registry import get_provider_class
 from cloud_backup.services import oauth2_service, oauth_service
 from cloud_backup.utils.constants import OBJECT_PROVIDERS
 
-# Providers whose access token is refreshed via the generic OAuth2 flow.
-_OAUTH2_PROVIDERS = ("onedrive", "dropbox")
-
 
 def get_provider(provider: str | Document) -> CloudBackupProvider:
 	"""Return an authenticated provider instance, refreshing tokens if stale."""
@@ -28,13 +25,17 @@ def get_provider(provider: str | Document) -> CloudBackupProvider:
 
 
 def _ensure_valid_token(doc: Document) -> None:
-	"""Refresh an OAuth access token when it has expired (per provider flow)."""
+	"""Refresh an OAuth access token when it has expired (per provider flow).
+
+	Dropbox is intentionally absent: its SDK client auto-refreshes from the
+	stored refresh token + app key/secret, so no pre-emptive refresh is needed.
+	"""
 	if not doc.token_expiry or get_datetime(doc.token_expiry) > now_datetime():
 		return
 	if doc.provider_type == "google_drive":
 		oauth_service.refresh_token(doc)
-	elif doc.provider_type in _OAUTH2_PROVIDERS:
-		oauth2_service.refresh_token(doc)
+	elif doc.provider_type == "onedrive":
+		oauth2_service.refresh_onedrive(doc)
 
 
 def _build_config(doc: Document) -> dict:
@@ -53,4 +54,12 @@ def _build_config(doc: Document) -> dict:
 				"refresh_token": doc.get_password("refresh_token", raise_exception=False),
 			}
 		)
+		if doc.provider_type == "dropbox":
+			# The Dropbox SDK needs the app key/secret to auto-refresh tokens.
+			config.update(
+				{
+					"client_id": doc.get_password("client_id", raise_exception=False),
+					"client_secret": doc.get_password("client_secret", raise_exception=False),
+				}
+			)
 	return config

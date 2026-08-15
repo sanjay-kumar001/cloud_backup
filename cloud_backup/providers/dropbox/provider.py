@@ -1,33 +1,38 @@
 # Copyright (c) 2026, Sanjay Kumar and contributors
 # For license information, please see license.txt
 
-"""Dropbox provider built on the Dropbox v2 REST API (path-addressed)."""
+"""Dropbox provider on the official dropbox SDK (auto-refreshing client)."""
 
 from __future__ import annotations
 
-import json
 import os
 from typing import Any
 
-import requests
+import dropbox
+from dropbox import exceptions as dbx_exc
+from dropbox.files import CommitInfo, FileMetadata, FolderMetadata, UploadSessionCursor, WriteMode
 from requests.exceptions import RequestException
 
-from cloud_backup.providers import errors
 from cloud_backup.providers.base import CloudBackupProvider
-from cloud_backup.providers.dropbox import DROPBOX_CONTENT, DROPBOX_RPC
 from cloud_backup.utils.constants import HTTP_TIMEOUT, UPLOAD_CHUNK_SIZE, StorageKind
-from cloud_backup.utils.exceptions import AuthenticationError
+from cloud_backup.utils.exceptions import (
+	AuthenticationError,
+	CloudBackupError,
+	NetworkError,
+	RateLimited,
+	StorageQuotaExceeded,
+)
 
 
 class DropboxProvider(CloudBackupProvider):
-	"""Folder-based provider using Dropbox v2; folder/file ids are paths."""
+	"""Folder-based provider using the Dropbox v2 SDK; ids are paths."""
 
 	provider_type = "dropbox"
 	storage_kind = StorageKind.FOLDER
 
 	def __init__(self, config: dict[str, Any]) -> None:
 		super().__init__(config)
-		self._token = None
+		self._client = None
 		self._progress = None
 
 	def set_progress_callback(self, callback) -> None:
@@ -35,159 +40,182 @@ class DropboxProvider(CloudBackupProvider):
 		self._progress = callback
 
 	def authenticate(self) -> None:
-		token = self.config.get("access_token")
-		if not token:
+		access = self.config.get("access_token")
+		refresh = self.config.get("refresh_token")
+		if not (refresh or access):
 			raise AuthenticationError("Dropbox provider is not authorized")
-		self._token = token
+		# refresh_token + app_key/secret lets the SDK refresh access tokens itself.
+		self._client = dropbox.Dropbox(
+			oauth2_access_token=access,
+			oauth2_refresh_token=refresh,
+			app_key=self.config.get("client_id"),
+			app_secret=self.config.get("client_secret"),
+			timeout=HTTP_TIMEOUT,
+		)
 
 	@property
-	def token(self) -> str:
-		if self._token is None:
+	def client(self):
+		if self._client is None:
 			self.authenticate()
-		return self._token
+		return self._client
 
 	def test_connection(self) -> dict[str, Any]:
 		try:
-			account = self._rpc("/users/get_current_account")
-			email = account.get("email", "")
+			account = self.client.users_get_current_account()
+			email = getattr(account, "email", "")
 			return {"ok": True, "message": f"Connected as {email}" if email else "Connected to Dropbox"}
 		except Exception as exc:
-			return {"ok": False, "message": getattr(exc, "message", None) or str(exc)}
+			mapped = self._map(exc)
+			return {"ok": False, "message": mapped.message or str(mapped)}
 
 	def list_folders(self, parent_id: str | None = None) -> list[dict[str, Any]]:
 		return [
-			{"id": e["path_lower"], "name": e["name"]}
-			for e in self._list_folder(self._resolve_parent(parent_id))
-			if e.get(".tag") == "folder"
+			{"id": e.path_lower, "name": e.name}
+			for e in self._entries(self._resolve(parent_id))
+			if isinstance(e, FolderMetadata)
 		]
 
 	def create_folder(self, name: str, parent_id: str | None = None) -> dict[str, Any]:
-		path = _join(self._resolve_parent(parent_id), name)
-		meta = self._rpc("/files/create_folder_v2", {"path": path}).get("metadata", {})
-		return {"id": meta.get("path_lower", path), "name": meta.get("name", name)}
+		path = _join(self._resolve(parent_id), name)
+		try:
+			meta = self.client.files_create_folder_v2(path).metadata
+		except Exception as exc:
+			raise self._map(exc)
+		return {"id": meta.path_lower, "name": meta.name}
 
 	def upload_file(
 		self, local_path: str, remote_target: str, remote_name: str | None = None
 	) -> dict[str, Any]:
 		name = remote_name or os.path.basename(local_path)
-		path = _join(self._resolve_parent(remote_target), name)
-		meta = self._upload_session(local_path, path)
+		path = _join(self._resolve(remote_target), name)
+		try:
+			meta = self._upload(local_path, path)
+		except Exception as exc:
+			raise self._map(exc)
 		return {
-			"id": meta.get("path_lower", path),
-			"name": meta.get("name", name),
-			"size": int(meta.get("size") or 0),
-			"checksum": meta.get("content_hash"),
+			"id": meta.path_lower,
+			"name": meta.name,
+			"size": int(meta.size or 0),
+			"checksum": meta.content_hash,
 		}
 
 	def list_files(self, folder_id: str | None = None) -> list[dict[str, Any]]:
-		folder = self._resolve_parent(folder_id or self.config.get("destination_folder"))
+		folder = self._resolve(folder_id or self.config.get("destination_folder"))
 		return [
-			{
-				"id": e["path_lower"],
-				"name": e["name"],
-				"size": int(e.get("size") or 0),
-				"checksum": e.get("content_hash"),
-			}
-			for e in self._list_folder(folder)
-			if e.get(".tag") == "file"
+			{"id": e.path_lower, "name": e.name, "size": int(e.size or 0), "checksum": e.content_hash}
+			for e in self._entries(folder)
+			if isinstance(e, FileMetadata)
 		]
 
 	def get_file_metadata(self, file_id: str) -> dict[str, Any]:
-		meta = self._rpc("/files/get_metadata", {"path": file_id})
+		try:
+			meta = self.client.files_get_metadata(file_id)
+		except Exception as exc:
+			raise self._map(exc)
 		return {
-			"id": meta.get("path_lower", file_id),
-			"name": meta.get("name"),
-			"size": int(meta.get("size") or 0),
-			"checksum": meta.get("content_hash"),
+			"id": meta.path_lower,
+			"name": meta.name,
+			"size": int(getattr(meta, "size", 0) or 0),
+			"checksum": getattr(meta, "content_hash", None),
 		}
 
 	def delete_file(self, file_id: str) -> None:
-		self._rpc("/files/delete_v2", {"path": file_id})
+		try:
+			self.client.files_delete_v2(file_id)
+		except Exception as exc:
+			raise self._map(exc)
 
 	def download_file(self, file_id: str, local_path: str) -> str:
-		response = self._content("/files/download", {"path": file_id}, stream=True)
-		with open(local_path, "wb") as handle:
-			for chunk in response.iter_content(chunk_size=UPLOAD_CHUNK_SIZE):
-				if chunk:
-					handle.write(chunk)
+		try:
+			self.client.files_download_to_file(local_path, file_id)
+		except Exception as exc:
+			raise self._map(exc)
 		return local_path
 
 	def get_storage_usage(self) -> dict[str, Any]:
-		usage = self._rpc("/users/get_space_usage")
-		used = int(usage.get("used", 0))
-		allocation = usage.get("allocation", {})
-		total = allocation.get("allocated")
-		total = int(total) if total is not None else None
+		try:
+			usage = self.client.users_get_space_usage()
+		except Exception as exc:
+			raise self._map(exc)
+		used = int(usage.used or 0)
+		total = _allocated(usage.allocation)
 		return {"used": used, "total": total, "available": (total - used) if total else None}
 
-	def _list_folder(self, path: str) -> list[dict[str, Any]]:
+	def _entries(self, path: str) -> list[Any]:
 		"""Return all entries under path, following Dropbox cursors."""
-		result = self._rpc("/files/list_folder", {"path": path})
-		entries = list(result.get("entries", []))
-		while result.get("has_more"):
-			result = self._rpc("/files/list_folder/continue", {"cursor": result["cursor"]})
-			entries.extend(result.get("entries", []))
+		try:
+			result = self.client.files_list_folder(path)
+			entries = list(result.entries)
+			while result.has_more:
+				result = self.client.files_list_folder_continue(result.cursor)
+				entries.extend(result.entries)
+		except Exception as exc:
+			raise self._map(exc)
 		return entries
 
-	def _upload_session(self, local_path: str, path: str) -> dict[str, Any]:
-		"""Stream local_path to Dropbox via an upload session (any size)."""
-		commit = {"path": path, "mode": "overwrite", "autorename": False, "mute": True}
-		total = os.path.getsize(local_path)
+	def _upload(self, local_path: str, path: str):
+		"""Single-shot for small files, chunked upload session for large ones."""
+		size = os.path.getsize(local_path)
+		mode = WriteMode("overwrite")
 		with open(local_path, "rb") as handle:
-			data = handle.read(UPLOAD_CHUNK_SIZE)
-			session_id = self._content("/files/upload_session/start", {"close": False}, data=data).json()[
-				"session_id"
-			]
-			offset = len(data)
-			while True:
-				data = handle.read(UPLOAD_CHUNK_SIZE)
-				cursor = {"session_id": session_id, "offset": offset}
-				if len(data) < UPLOAD_CHUNK_SIZE:
-					meta = self._content(
-						"/files/upload_session/finish", {"cursor": cursor, "commit": commit}, data=data
-					).json()
-					if self._progress:
-						self._progress(1.0)
-					return meta
-				self._content("/files/upload_session/append_v2", {"cursor": cursor}, data=data)
-				offset += len(data)
-				if self._progress and total:
-					self._progress(offset / total)
+			if size <= UPLOAD_CHUNK_SIZE:
+				meta = self.client.files_upload(handle.read(), path, mode=mode, mute=True)
+				if self._progress:
+					self._progress(1.0)
+				return meta
+			start = self.client.files_upload_session_start(handle.read(UPLOAD_CHUNK_SIZE))
+			cursor = UploadSessionCursor(session_id=start.session_id, offset=handle.tell())
+			commit = CommitInfo(path=path, mode=mode, mute=True)
+			while size - handle.tell() > UPLOAD_CHUNK_SIZE:
+				self.client.files_upload_session_append_v2(handle.read(UPLOAD_CHUNK_SIZE), cursor)
+				cursor.offset = handle.tell()
+				if self._progress and size:
+					self._progress(cursor.offset / size)
+			meta = self.client.files_upload_session_finish(handle.read(UPLOAD_CHUNK_SIZE), cursor, commit)
+			if self._progress:
+				self._progress(1.0)
+			return meta
 
-	def _resolve_parent(self, parent_id: str | None) -> str:
-		"""Dropbox root is the empty string; folders are absolute paths."""
+	def _resolve(self, parent_id: str | None) -> str:
+		"""Dropbox root is the empty string; folders are absolute paths ('/name')."""
 		parent = parent_id or self.config.get("root_folder") or ""
-		return "" if parent in ("", "root", "/") else parent
+		if parent in ("", "root", "/"):
+			return ""
+		return parent if parent.startswith("/") else "/" + parent
 
-	def _rpc(self, endpoint: str, arg: dict | None = None) -> dict[str, Any]:
-		"""Call a Dropbox RPC endpoint (JSON in, JSON out)."""
-		kwargs = {"json": arg} if arg is not None else {}
-		response = self._request(f"{DROPBOX_RPC}{endpoint}", **kwargs)
-		return response.json() if response.content else {}
-
-	def _content(self, endpoint: str, arg: dict, data: bytes = b"", stream: bool = False):
-		"""Call a Dropbox content endpoint (binary body, args in header)."""
-		headers = {
-			"Dropbox-API-Arg": json.dumps(arg),
-			"Content-Type": "application/octet-stream",
-		}
-		return self._request(f"{DROPBOX_CONTENT}{endpoint}", headers=headers, data=data, stream=stream)
-
-	def _request(self, url: str, **kwargs) -> requests.Response:
-		"""Issue an authenticated Dropbox POST, mapping failures to typed errors."""
-		headers = {"Authorization": f"Bearer {self.token}", **kwargs.pop("headers", {})}
-		try:
-			response = requests.post(
-				url, headers=headers, timeout=kwargs.pop("timeout", HTTP_TIMEOUT), **kwargs
-			)
-		except RequestException as exc:
-			raise errors.map_exception(exc)
-		if not response.ok:
-			raise errors.map_response(response)
-		return response
+	@staticmethod
+	def _map(exc: Exception) -> CloudBackupError:
+		"""Map an SDK/transport failure onto the typed error taxonomy."""
+		if isinstance(exc, CloudBackupError):
+			return exc
+		if isinstance(exc, dbx_exc.AuthError):
+			return AuthenticationError(str(exc))
+		if isinstance(exc, dbx_exc.RateLimitError):
+			return RateLimited(str(exc), retry_after=int(getattr(exc, "backoff", 0) or 0) or None)
+		if isinstance(exc, dbx_exc.InternalServerError | dbx_exc.HttpError):
+			return NetworkError(str(exc))
+		if isinstance(exc, dbx_exc.ApiError):
+			if "insufficient_space" in str(exc):
+				return StorageQuotaExceeded(str(exc))
+			return CloudBackupError(str(exc))
+		if isinstance(exc, RequestException):
+			return NetworkError(str(exc))
+		return CloudBackupError(str(exc))
 
 
 def _join(parent: str, name: str) -> str:
 	"""Join a Dropbox parent path and a child name into an absolute path."""
 	base = (parent or "").rstrip("/")
 	return f"{base}/{name}"
+
+
+def _allocated(allocation) -> int | None:
+	"""Total bytes from a Dropbox SpaceAllocation union (individual/team)."""
+	try:
+		if allocation.is_individual():
+			return int(allocation.get_individual().allocated)
+		if allocation.is_team():
+			return int(allocation.get_team().allocated)
+	except Exception:
+		return None
+	return None
