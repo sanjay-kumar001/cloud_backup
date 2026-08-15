@@ -46,6 +46,8 @@ class CloudBackupSettings(Document):
 			frappe.throw(frappe._("Backups to Keep cannot be negative"))
 		if self.retention_days and self.retention_days < 0:
 			frappe.throw(frappe._("Retention Days cannot be negative"))
+		if self.history_retention_days and self.history_retention_days < 0:
+			frappe.throw(frappe._("History Retention Days cannot be negative"))
 
 
 def get_cloud_backup_settings() -> "CloudBackupSettings":

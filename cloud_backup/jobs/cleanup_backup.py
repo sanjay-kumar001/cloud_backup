@@ -8,6 +8,6 @@ from __future__ import annotations
 from cloud_backup.services import retention_service
 
 
-def run(dry_run: bool = False) -> dict:
-	"""Run the Settings-gated retention cleanup."""
-	return retention_service.run_cleanup(dry_run=bool(dry_run))
+def run(dry_run: bool = False, provider: str | None = None) -> dict:
+	"""Run retention cleanup; provider=None = all managed providers (daily/manual)."""
+	return retention_service.run_cleanup(dry_run=bool(dry_run), provider=provider)

@@ -23,6 +23,7 @@
   "cb_retention",
   "retention_count",
   "retention_days",
+  "history_retention_days",
   "sb_notify",
   "notifications_enabled",
   "sb_status",
@@ -138,6 +139,13 @@
    "fieldname": "retention_days",
    "fieldtype": "Int",
    "label": "Retention Days"
+  },
+  {
+   "default": "0",
+   "description": "Purge history rows for already-removed remote backups older than N days; 0 keeps them",
+   "fieldname": "history_retention_days",
+   "fieldtype": "Int",
+   "label": "History Retention Days"
   },
   {
    "fieldname": "sb_notify",

@@ -50,7 +50,7 @@ def run(history: str, artifact: str | None = None, trigger: str = "manual") -> s
 		_set(doc, status="Completed", completed_at=now_datetime(), duration=_elapsed(started))
 		_update_settings(True, f"Uploaded {remote_name}")
 		log_service.write_log("upload_completed", f"Uploaded {remote_name}", source=SOURCE)
-		_enqueue_retention()
+		_enqueue_retention(doc.provider)
 	except Exception as exc:
 		message = getattr(exc, "message", None) or str(exc)
 		_set(doc, status="Failed", error=message, completed_at=now_datetime(), duration=_elapsed(started))
@@ -111,8 +111,8 @@ def _verify(doc, provider, result: dict) -> None:
 		)
 
 
-def _enqueue_retention() -> None:
-	"""Enforce retention right after an upload (all managed providers). Deduped."""
+def _enqueue_retention(provider: str) -> None:
+	"""Enforce retention for the just-uploaded provider only. Deduped per provider."""
 	from cloud_backup.utils.constants import UPLOAD_QUEUE, UPLOAD_TIMEOUT
 
 	if not get_cloud_backup_settings().auto_delete_remote:
@@ -121,8 +121,9 @@ def _enqueue_retention() -> None:
 		"cloud_backup.jobs.cleanup_backup.run",
 		queue=UPLOAD_QUEUE,
 		timeout=UPLOAD_TIMEOUT,
-		job_id="cloud_backup_retention",
+		job_id=f"cloud_backup_retention:{provider}",
 		deduplicate=True,
+		provider=provider,
 	)
 
 
