@@ -1,0 +1,20 @@
+{
+ "creation": "2026-08-15 00:00:00.000000",
+ "docstatus": 0,
+ "doctype": "Number Card",
+ "document_type": "Cloud Backup History",
+ "filters_json": "[[\"Cloud Backup History\",\"status\",\"=\",\"Failed\"]]",
+ "function": "Count",
+ "idx": 0,
+ "is_public": 1,
+ "is_standard": 1,
+ "label": "Cloud Backup Failed Uploads",
+ "modified": "2026-08-15 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cloud Backup",
+ "name": "Cloud Backup Failed Uploads",
+ "owner": "Administrator",
+ "show_percentage_stats": 1,
+ "stats_time_interval": "Daily",
+ "type": "Document Type"
+}

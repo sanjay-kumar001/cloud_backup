@@ -34,9 +34,11 @@ frappe.pages["cloud-backup-dashboard"].on_page_load = function (wrapper) {
 	}
 
 	function render(summary, storage) {
+		// Upload counts/trend live on the standard Cloud Backup workspace
+		// (Number Cards + Dashboard Charts). This page shows the live,
+		// provider-sourced data those cannot: storage quota and open failures.
 		$body.empty();
 		$body.append(headline(summary));
-		$body.append(stat_cards(summary));
 		$body.append(storage_section(storage));
 		$body.append(attention_section(summary.attention || []));
 	}
@@ -54,34 +56,6 @@ frappe.pages["cloud-backup-dashboard"].on_page_load = function (wrapper) {
 				`<span class="text-muted" style="margin-left:10px;">${__("Provider")}: ${provider} · ` +
 				`${__("Auto-upload")}: ${s.automatic_upload ? __("On") : __("Off")}</span>` +
 				`</div>`
-		);
-	}
-
-	function stat_cards(s) {
-		const last = s.last_backup;
-		const last_when = last && last.completed_at
-			? frappe.datetime.comment_when(last.completed_at)
-			: __("never");
-		const cards = [
-			card(__("Total Uploads"), s.counts.total, "blue"),
-			card(__("Completed"), s.counts.completed, "green"),
-			card(__("Failed"), s.counts.failed, s.counts.failed ? "red" : "gray"),
-			card(__("Last Backup"), last_when, "gray"),
-		];
-		return $(`<div class="row">${cards.join("")}</div>`);
-	}
-
-	function card(label, value, color) {
-		return (
-			`<div class="col-sm-3"><div class="dashboard-card" ` +
-			`style="border:1px solid var(--border-color);border-radius:8px;padding:12px;margin-bottom:12px;">` +
-			`<div class="text-muted" style="font-size:11px;text-transform:uppercase;">${frappe.utils.escape_html(
-				label
-			)}</div>` +
-			`<div class="indicator-pill-round"></div>` +
-			`<div style="font-size:22px;font-weight:600;" class="text-${color}">${frappe.utils.escape_html(
-				String(value)
-			)}</div></div></div>`
 		);
 	}
 
