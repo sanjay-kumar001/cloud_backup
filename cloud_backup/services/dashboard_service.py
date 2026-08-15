@@ -18,7 +18,7 @@ SUMMARY_DAYS = 7
 
 
 def get_overview() -> dict:
-	"""Return health, summary counts, storage, recent uploads and trend."""
+	"""Return fast local data: health, summary, recent uploads and trend."""
 	from cloud_backup.cloud_backup.doctype.cloud_backup_settings.cloud_backup_settings import (
 		get_cloud_backup_settings,
 	)
@@ -37,7 +37,6 @@ def get_overview() -> dict:
 		"provider": settings.default_provider,
 		"automatic_upload": bool(settings.automatic_upload),
 		"summary": get_summary(),
-		"storage": get_storage_usage(),
 		"recent": get_recent_uploads(),
 		"trend": get_upload_trend(),
 	}

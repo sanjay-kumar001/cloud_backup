@@ -7,6 +7,8 @@ import types
 import unittest
 from unittest.mock import patch
 
+import frappe
+
 from cloud_backup.services import dashboard_service
 from cloud_backup.utils.exceptions import AuthenticationError
 
@@ -29,16 +31,19 @@ class TestDashboardService(unittest.TestCase):
 
 	def test_get_storage_usage_maps_provider(self):
 		fake = types.SimpleNamespace(get_storage_usage=lambda: {"used": 90, "total": 100, "available": 10})
-		with patch.object(dashboard_service, "_authorized_providers", return_value=["Onedrive"]), patch.object(
+		prov = frappe._dict(name="Onedrive", provider_type="onedrive", logo=None)
+		with patch.object(dashboard_service, "_authorized_providers", return_value=[prov]), patch.object(
 			dashboard_service.provider_service, "get_provider", return_value=fake
 		):
 			out = dashboard_service.get_storage_usage()
 		self.assertEqual(out[0]["provider"], "Onedrive")
+		self.assertEqual(out[0]["logo"], "/assets/cloud_backup/images/onedrive.jpg")
 		self.assertTrue(out[0]["ok"])
 		self.assertTrue(out[0]["warn"])
 
 	def test_get_storage_usage_handles_error(self):
-		with patch.object(dashboard_service, "_authorized_providers", return_value=["Dropbox"]), patch.object(
+		prov = frappe._dict(name="Dropbox", provider_type="dropbox", logo=None)
+		with patch.object(dashboard_service, "_authorized_providers", return_value=[prov]), patch.object(
 			dashboard_service.provider_service, "get_provider", side_effect=AuthenticationError("nope")
 		):
 			out = dashboard_service.get_storage_usage()

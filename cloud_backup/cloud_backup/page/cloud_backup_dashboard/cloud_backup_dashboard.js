@@ -40,8 +40,23 @@ frappe.pages["cloud-backup-dashboard"].on_page_load = function (wrapper) {
 		$body.html(`<div class="text-muted">${__("Loading...")}</div>`);
 		frappe
 			.xcall("cloud_backup.api.dashboard.get_overview")
-			.then(render)
+			.then((d) => {
+				render(d);
+				load_storage();
+			})
 			.catch(() => $body.html(`<div class="text-danger">${__("Failed to load")}</div>`));
+	}
+
+	function load_storage() {
+		const $col = $body.find(".cb-storage-col");
+		const $target = $col.find(".cb-storage-body");
+		$target.html(`<div class="text-muted">${__("Loading...")}</div>`);
+		frappe
+			.xcall("cloud_backup.api.dashboard.get_storage")
+			.then((storage) => render_storage($target, storage || []))
+			.catch(() =>
+				$target.html(`<div class="text-danger">${__("Failed to load storage")}</div>`)
+			);
 	}
 
 	function backup_now() {
@@ -59,7 +74,7 @@ frappe.pages["cloud-backup-dashboard"].on_page_load = function (wrapper) {
 		$body.append(headline(d));
 		$body.append(summary_row(d.summary || {}));
 		const $cols = $('<div class="row"></div>').appendTo($body);
-		$cols.append(storage_section(d.storage || []));
+		$cols.append(storage_section());
 		$cols.append(trend_section(d.trend || {}));
 		$body.append(recent_section(d.recent || []));
 	}
@@ -106,17 +121,23 @@ frappe.pages["cloud-backup-dashboard"].on_page_load = function (wrapper) {
 		);
 	}
 
-	function storage_section(storage) {
-		const $col = $(`<div class="col-md-6"><h5>${__("Storage")}</h5></div>`);
+	function storage_section() {
+		return $(
+			`<div class="col-md-6 cb-storage-col"><h5>${__("Storage")}</h5>` +
+				`<div class="cb-storage-body"></div></div>`
+		);
+	}
+
+	function render_storage($target, storage) {
+		$target.empty();
 		if (!storage.length) {
-			$col.append(`<div class="text-muted">${__("No authorized provider with quota.")}</div>`);
-			return $col;
+			$target.html(`<div class="text-muted">${__("No authorized provider with quota.")}</div>`);
+			return;
 		}
 		const $grid = $(
 			'<div style="display:flex;flex-wrap:wrap;gap:10px;"></div>'
-		).appendTo($col);
+		).appendTo($target);
 		storage.forEach((e) => $grid.append(storage_card(e)));
-		return $col;
 	}
 
 	function provider_logo(e) {
