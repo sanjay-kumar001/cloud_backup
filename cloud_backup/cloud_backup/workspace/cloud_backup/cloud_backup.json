@@ -1,16 +1,7 @@
 {
  "app": "cloud_backup",
- "charts": [
-  {
-   "chart_name": "Cloud Backup Uploads by Status",
-   "label": "Cloud Backup Uploads by Status"
-  },
-  {
-   "chart_name": "Cloud Backup Upload Trend",
-   "label": "Cloud Backup Upload Trend"
-  }
- ],
- "content": "[{\"id\":\"cb_hdr\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Cloud Backup</span>\",\"col\":12}},{\"id\":\"cb_nc1\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Cloud Backup Uploads\",\"col\":3}},{\"id\":\"cb_nc2\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Cloud Backup Completed Uploads\",\"col\":3}},{\"id\":\"cb_nc3\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Cloud Backup Failed Uploads\",\"col\":3}},{\"id\":\"cb_nc4\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Cloud Backup Data Uploaded\",\"col\":3}},{\"id\":\"cb_ch1\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Cloud Backup Uploads by Status\",\"col\":6}},{\"id\":\"cb_ch2\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Cloud Backup Upload Trend\",\"col\":6}},{\"id\":\"cb_spacer\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"cb_sc1\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Dashboard\",\"col\":3}},{\"id\":\"cb_sc2\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Settings\",\"col\":3}},{\"id\":\"cb_sc3\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"History\",\"col\":3}},{\"id\":\"cb_c1\",\"type\":\"card\",\"data\":{\"card_name\":\"Configuration\",\"col\":4}},{\"id\":\"cb_c2\",\"type\":\"card\",\"data\":{\"card_name\":\"Monitoring\",\"col\":4}}]",
+ "charts": [],
+ "content": "[{\"id\":\"cb_hdr\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Cloud Backup</span>\",\"col\":12}},{\"id\":\"cb_nc1\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Cloud Backup Uploads\",\"col\":3}},{\"id\":\"cb_nc2\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Cloud Backup Completed Uploads\",\"col\":3}},{\"id\":\"cb_nc3\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Cloud Backup Failed Uploads\",\"col\":3}},{\"id\":\"cb_nc4\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Cloud Backup Data Uploaded\",\"col\":3}},{\"id\":\"cb_spacer\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"cb_sc0\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Overview\",\"col\":3}},{\"id\":\"cb_sc1\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Failed Uploads\",\"col\":3}},{\"id\":\"cb_sc2\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Settings\",\"col\":3}},{\"id\":\"cb_sc3\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"History\",\"col\":3}},{\"id\":\"cb_c1\",\"type\":\"card\",\"data\":{\"card_name\":\"Configuration\",\"col\":4}},{\"id\":\"cb_c2\",\"type\":\"card\",\"data\":{\"card_name\":\"Monitoring\",\"col\":4}}]",
  "creation": "2026-08-14 00:00:00.000000",
  "custom_blocks": [],
  "docstatus": 0,
@@ -68,9 +59,9 @@
   {
    "hidden": 0,
    "is_query_report": 0,
-   "label": "Cloud Backup Dashboard",
-   "link_to": "cloud-backup-dashboard",
-   "link_type": "Page",
+   "label": "Cloud Backup Overview",
+   "link_to": "Cloud Backup Overview",
+   "link_type": "Dashboard",
    "onboard": 0,
    "type": "Link"
   },
@@ -93,7 +84,7 @@
    "type": "Link"
   }
  ],
- "modified": "2026-08-15 12:00:00.000000",
+ "modified": "2026-08-15 14:00:00.000000",
  "modified_by": "Administrator",
  "module": "Cloud Backup",
  "name": "Cloud Backup",
@@ -125,9 +116,18 @@
   {
    "color": "Blue",
    "doc_view": "",
-   "label": "Dashboard",
-   "link_to": "cloud-backup-dashboard",
-   "type": "Page"
+   "label": "Overview",
+   "link_to": "Cloud Backup Overview",
+   "type": "Dashboard"
+  },
+  {
+   "color": "Red",
+   "doc_view": "List",
+   "format": "{} Failed",
+   "label": "Failed Uploads",
+   "link_to": "Cloud Backup History",
+   "stats_filter": "[[\"Cloud Backup History\",\"status\",\"=\",\"Failed\"]]",
+   "type": "DocType"
   },
   {
    "color": "Grey",

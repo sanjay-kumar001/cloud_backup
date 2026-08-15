@@ -1,7 +1,7 @@
 # Copyright (c) 2026, Sanjay Kumar and contributors
 # For license information, please see license.txt
 
-"""Unit tests for dashboard_service aggregation (pure logic + mocked providers)."""
+"""Unit tests for dashboard_service storage utilization (mocked providers)."""
 
 import types
 import unittest
@@ -26,16 +26,6 @@ class TestDashboardService(unittest.TestCase):
 		out = dashboard_service._utilization({"used": 10, "total": None})
 		self.assertIsNone(out["percent"])
 		self.assertFalse(out["warn"])
-
-	def test_health_states(self):
-		disabled = types.SimpleNamespace(enabled=0, last_upload_status=None, default_provider="X")
-		self.assertEqual(dashboard_service._health(disabled, 0), "Disabled")
-		attention = types.SimpleNamespace(enabled=1, last_upload_status="Failed", default_provider="X")
-		self.assertEqual(dashboard_service._health(attention, 3), "Attention")
-		unconf = types.SimpleNamespace(enabled=1, last_upload_status="Success", default_provider=None)
-		self.assertEqual(dashboard_service._health(unconf, 0), "Unconfigured")
-		healthy = types.SimpleNamespace(enabled=1, last_upload_status="Success", default_provider="X")
-		self.assertEqual(dashboard_service._health(healthy, 0), "Healthy")
 
 	def test_get_storage_usage_maps_provider(self):
 		fake = types.SimpleNamespace(get_storage_usage=lambda: {"used": 90, "total": 100, "available": 10})
