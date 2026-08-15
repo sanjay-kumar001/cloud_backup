@@ -42,17 +42,25 @@ class TestCorePatches(unittest.TestCase):
 		pm._ORIGINALS.pop(TARGET, None)
 		sentinel = object()
 		seen = {}
-		B.new_backup = lambda *a, **k: seen.setdefault("args", (a, k)) or sentinel
-		cb.apply_patches()
-		orig_enqueue = frappe.enqueue
-		try:
-			from cloud_backup.services import backup_service
 
+		def fake_original(*a, **k):
+			seen["args"] = (a, k)
+			return sentinel
+
+		B.new_backup = fake_original
+		cb.apply_patches()
+		from cloud_backup.services import backup_service
+
+		orig_enqueue = frappe.enqueue
+		orig_after = backup_service.enqueue_after_backup
+		try:
 			backup_service.enqueue_after_backup = lambda odb, trigger="auto": seen.__setitem__("odb", odb)
 			result = B.new_backup(older_than=3)
 		finally:
 			frappe.enqueue = orig_enqueue
+			backup_service.enqueue_after_backup = orig_after
 		self.assertIs(result, sentinel)
+		self.assertEqual(seen["args"], ((), {"older_than": 3}))
 		self.assertIs(seen["odb"], sentinel)
 
 	def test_kill_switch(self):

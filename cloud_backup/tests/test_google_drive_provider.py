@@ -3,6 +3,7 @@
 
 """Unit tests for GoogleDriveProvider (Drive API stubbed)."""
 
+import tempfile
 import unittest
 
 from cloud_backup.providers.google_drive.provider import GoogleDriveProvider
@@ -21,6 +22,10 @@ class _Exec:
 
 	def execute(self):
 		return self._result
+
+	def next_chunk(self):
+		"""Single-chunk resumable upload: complete immediately."""
+		return (None, self._result)
 
 
 class _Files:
@@ -108,6 +113,12 @@ class TestGoogleDriveProvider(unittest.TestCase):
 		self.assertIsInstance(m(_FakeHttpError(429)), RateLimited)
 		self.assertIsInstance(m(_FakeHttpError(503)), NetworkError)
 
-	def test_upload_not_available_yet(self):
-		with self.assertRaises(NotImplementedError):
-			_provider(_FakeService()).upload_file("/tmp/x", "dest")
+	def test_upload_file(self):
+		captured = {}
+		with tempfile.NamedTemporaryFile(suffix=".sql.gz") as fh:
+			fh.write(b"backup")
+			fh.flush()
+			out = _provider(_FakeService(captured=captured)).upload_file(fh.name, "dest", "db.sql.gz")
+		self.assertEqual(out["id"], "new1")
+		self.assertEqual(out["name"], "db.sql.gz")
+		self.assertEqual(captured["create"]["body"]["parents"], ["dest"])
