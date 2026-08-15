@@ -14,6 +14,7 @@ from cloud_backup.utils.exceptions import CloudBackupError
 
 RECENT_LIMIT = 7
 TREND_DAYS = 14
+SUMMARY_DAYS = 7
 
 
 def get_overview() -> dict:
@@ -43,11 +44,14 @@ def get_overview() -> dict:
 
 
 def get_summary() -> dict:
-	"""Return total/completed/failed upload counts."""
+	"""Return total/completed/failed upload counts for the last 7 days."""
+	since = add_days(getdate(), -(SUMMARY_DAYS - 1))
+	base = {"creation": [">=", since]}
 	return {
-		"total": frappe.db.count("Cloud Backup History"),
-		"completed": frappe.db.count("Cloud Backup History", {"status": "Completed"}),
-		"failed": frappe.db.count("Cloud Backup History", {"status": "Failed"}),
+		"days": SUMMARY_DAYS,
+		"total": frappe.db.count("Cloud Backup History", base),
+		"completed": frappe.db.count("Cloud Backup History", {**base, "status": "Completed"}),
+		"failed": frappe.db.count("Cloud Backup History", {**base, "status": "Failed"}),
 	}
 
 

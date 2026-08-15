@@ -2,7 +2,7 @@
  "app": "cloud_backup",
  "charts": [],
  "content": "[{\"id\":\"cb_hdr\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Cloud Backup</span>\",\"col\":12}},{\"id\":\"cb_nc1\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Cloud Backup Uploads\",\"col\":4}},{\"id\":\"cb_nc2\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Cloud Backup Completed Uploads\",\"col\":4}},{\"id\":\"cb_nc3\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Cloud Backup Failed Uploads\",\"col\":4}},{\"id\":\"cb_spacer\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"cb_sc0\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Dashboard\",\"col\":4}},{\"id\":\"cb_sc2\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Failed Uploads\",\"col\":4}},{\"id\":\"cb_sc3\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Settings\",\"col\":4}},{\"id\":\"cb_c1\",\"type\":\"card\",\"data\":{\"card_name\":\"Configuration\",\"col\":4}},{\"id\":\"cb_c2\",\"type\":\"card\",\"data\":{\"card_name\":\"Monitoring\",\"col\":4}}]",
- "creation": "2026-08-14 00:00:00.000000",
+ "creation": "2026-08-14 00:00:00",
  "custom_blocks": [],
  "docstatus": 0,
  "doctype": "Workspace",
@@ -25,6 +25,7 @@
    "hidden": 0,
    "is_query_report": 0,
    "label": "Cloud Backup Settings",
+   "link_count": 0,
    "link_to": "Cloud Backup Settings",
    "link_type": "DocType",
    "onboard": 1,
@@ -34,6 +35,7 @@
    "hidden": 0,
    "is_query_report": 0,
    "label": "Cloud Backup Provider",
+   "link_count": 0,
    "link_to": "Cloud Backup Provider",
    "link_type": "DocType",
    "onboard": 1,
@@ -43,6 +45,7 @@
    "hidden": 0,
    "is_query_report": 0,
    "label": "Cloud Backup Schedule",
+   "link_count": 0,
    "link_to": "Cloud Backup Schedule",
    "link_type": "DocType",
    "onboard": 0,
@@ -60,6 +63,7 @@
    "hidden": 0,
    "is_query_report": 0,
    "label": "Dashboard",
+   "link_count": 0,
    "link_to": "cloud-backup-dashboard",
    "link_type": "Page",
    "onboard": 0,
@@ -69,6 +73,7 @@
    "hidden": 0,
    "is_query_report": 0,
    "label": "Cloud Backup History",
+   "link_count": 0,
    "link_to": "Cloud Backup History",
    "link_type": "DocType",
    "onboard": 0,
@@ -78,13 +83,14 @@
    "hidden": 0,
    "is_query_report": 0,
    "label": "Cloud Backup Log",
+   "link_count": 0,
    "link_to": "Cloud Backup Log",
    "link_type": "DocType",
    "onboard": 0,
    "type": "Link"
   }
  ],
- "modified": "2026-08-15 16:30:00.000000",
+ "modified": "2026-08-15 15:37:23.906268",
  "modified_by": "Administrator",
  "module": "Cloud Backup",
  "name": "Cloud Backup",
@@ -133,5 +139,6 @@
    "type": "DocType"
   }
  ],
- "title": "Cloud Backup"
+ "title": "Cloud Backup",
+ "type": "Workspace"
 }

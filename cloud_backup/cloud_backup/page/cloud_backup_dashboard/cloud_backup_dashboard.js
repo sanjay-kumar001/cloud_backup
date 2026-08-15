@@ -84,13 +84,18 @@ frappe.pages["cloud-backup-dashboard"].on_page_load = function (wrapper) {
 	}
 
 	function summary_row(s) {
-		const $row = $('<div class="row" style="margin-bottom:16px;"></div>');
+		const days = s.days || 7;
+		const $wrap = $(
+			`<div style="margin-bottom:16px;"><div class="text-muted" ` +
+				`style="font-size:12px;margin-bottom:6px;">${__("Last {0} days", [days])}</div></div>`
+		);
+		const $row = $('<div class="row"></div>').appendTo($wrap);
 		$row.append(stat_tile(__("Total Uploads"), s.total || 0, "", TILE_BG.total));
 		$row.append(stat_tile(__("Completed"), s.completed || 0, "text-success", TILE_BG.completed));
 		$row.append(
 			stat_tile(__("Failed"), s.failed || 0, s.failed ? "text-danger" : "", TILE_BG.failed)
 		);
-		return $row;
+		return $wrap;
 	}
 
 	function stat_tile(label, value, cls, bg) {
