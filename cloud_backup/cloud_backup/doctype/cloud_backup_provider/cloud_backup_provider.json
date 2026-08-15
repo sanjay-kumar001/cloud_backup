@@ -6,6 +6,7 @@
  "field_order": [
   "provider_type",
   "enabled",
+  "logo",
   "column_break_ssry",
   "authentication_status",
   "storage_kind",
@@ -171,10 +172,16 @@
   {
    "fieldname": "section_break_hdla",
    "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "logo",
+   "fieldtype": "Attach Image",
+   "label": "Logo",
+   "description": "Optional. Shown on the dashboard. Falls back to the built-in provider logo."
   }
  ],
  "links": [],
- "modified": "2026-08-14 14:48:21.954625",
+ "modified": "2026-08-15 16:35:00.000000",
  "modified_by": "Administrator",
  "module": "Cloud Backup",
  "name": "Cloud Backup Provider",

@@ -25,18 +25,6 @@
    "indent": 0,
    "keep_closed": 0,
    "label": "Dashboard",
-   "link_to": "Cloud Backup Overview",
-   "link_type": "Dashboard",
-   "show_arrow": 0,
-   "type": "Link"
-  },
-  {
-   "child": 0,
-   "collapsible": 1,
-   "icon": "heart-pulse",
-   "indent": 0,
-   "keep_closed": 0,
-   "label": "Health",
    "link_to": "cloud-backup-dashboard",
    "link_type": "Page",
    "show_arrow": 0,
@@ -115,7 +103,7 @@
   }
 
  ],
- "modified": "2026-08-15 15:00:00.000000",
+ "modified": "2026-08-15 16:30:00.000000",
  "modified_by": "Administrator",
  "name": "Cloud Backup",
  "owner": "Administrator",

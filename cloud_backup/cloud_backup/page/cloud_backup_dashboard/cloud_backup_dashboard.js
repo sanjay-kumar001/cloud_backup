@@ -4,20 +4,35 @@
 frappe.pages["cloud-backup-dashboard"].on_page_load = function (wrapper) {
 	const page = frappe.ui.make_app_page({
 		parent: wrapper,
-		title: __("Cloud Backup Health"),
+		title: __("Cloud Backup Dashboard"),
 		single_column: true,
 	});
 
-	const $body = $('<div class="cb-health" style="margin-top:12px;"></div>').appendTo(page.body);
+	const $body = $('<div class="cb-dash" style="margin-top:12px;"></div>').appendTo(page.body);
 	page.set_primary_action(__("Refresh"), () => load(), "refresh");
-	page.add_inner_button(__("Overview"), () =>
-		frappe.set_route("dashboard-view", "Cloud Backup Overview")
-	);
+	page.add_inner_button(__("Backup Now"), () => backup_now());
+	page.add_inner_button(__("History"), () => frappe.set_route("List", "Cloud Backup History"));
 	page.add_inner_button(__("Settings"), () =>
 		frappe.set_route("Form", "Cloud Backup Settings", "Cloud Backup Settings")
 	);
 
-	const HEALTH_COLOR = { Healthy: "green", Attention: "red", Disabled: "gray", Unconfigured: "orange" };
+	const HEALTH_COLOR = {
+		Healthy: "green",
+		Attention: "red",
+		Disabled: "gray",
+		Unconfigured: "orange",
+	};
+	const STATUS_COLOR = {
+		Completed: "green",
+		Failed: "red",
+		Uploading: "blue",
+		Processing: "blue",
+		Verifying: "blue",
+		Queued: "orange",
+		Retrying: "orange",
+		Cancelled: "gray",
+		Skipped: "gray",
+	};
 
 	function load() {
 		$body.html(`<div class="text-muted">${__("Loading...")}</div>`);
@@ -27,10 +42,24 @@ frappe.pages["cloud-backup-dashboard"].on_page_load = function (wrapper) {
 			.catch(() => $body.html(`<div class="text-danger">${__("Failed to load")}</div>`));
 	}
 
+	function backup_now() {
+		frappe
+			.xcall("cloud_backup.api.backup.upload_latest")
+			.then(() => {
+				frappe.show_alert({ message: __("Backup queued"), indicator: "green" });
+				setTimeout(load, 1500);
+			})
+			.catch(() => frappe.show_alert({ message: __("Failed to queue backup"), indicator: "red" }));
+	}
+
 	function render(d) {
 		$body.empty();
 		$body.append(headline(d));
-		$body.append(storage_section(d.storage || []));
+		$body.append(summary_row(d.summary || {}));
+		const $cols = $('<div class="row"></div>').appendTo($body);
+		$cols.append(storage_section(d.storage || []));
+		$cols.append(trend_section(d.trend || {}));
+		$body.append(recent_section(d.recent || []));
 	}
 
 	function headline(d) {
@@ -46,37 +75,123 @@ frappe.pages["cloud-backup-dashboard"].on_page_load = function (wrapper) {
 		);
 	}
 
-	function storage_section(storage) {
-		const $wrap = $(`<div><h5>${__("Storage Utilization")}</h5></div>`);
-		if (!storage.length) {
-			$wrap.append(`<div class="text-muted">${__("No authorized provider with quota.")}</div>`);
-			return $wrap;
-		}
-		storage.forEach((e) => $wrap.append(storage_bar(e)));
-		return $wrap;
+	function summary_row(s) {
+		const $row = $('<div class="row" style="margin-bottom:16px;"></div>');
+		$row.append(stat_tile(__("Total Uploads"), s.total || 0, ""));
+		$row.append(stat_tile(__("Completed"), s.completed || 0, "text-success"));
+		$row.append(stat_tile(__("Failed"), s.failed || 0, s.failed ? "text-danger" : ""));
+		return $row;
 	}
 
-	function storage_bar(e) {
+	function stat_tile(label, value, cls) {
+		return $(
+			`<div class="col-sm-4"><div class="cb-tile" style="border:1px solid var(--border-color);` +
+				`border-radius:8px;padding:14px 16px;">` +
+				`<div class="text-muted" style="font-size:12px;">${label}</div>` +
+				`<div class="${cls}" style="font-size:26px;font-weight:600;">${value}</div></div></div>`
+		);
+	}
+
+	function storage_section(storage) {
+		const $col = $(`<div class="col-md-6"><h5>${__("Storage")}</h5></div>`);
+		if (!storage.length) {
+			$col.append(`<div class="text-muted">${__("No authorized provider with quota.")}</div>`);
+			return $col;
+		}
+		storage.forEach((e) => $col.append(storage_card(e)));
+		return $col;
+	}
+
+	function provider_logo(e) {
+		if (!e.logo) return "";
+		return (
+			`<img src="${e.logo}" alt="" style="width:22px;height:22px;object-fit:contain;` +
+			`margin-right:8px;border-radius:4px;">`
+		);
+	}
+
+	function storage_card(e) {
 		const name = frappe.utils.escape_html(e.provider);
 		if (!e.ok || e.percent === null || e.percent === undefined) {
 			return $(
-				`<div style="margin-bottom:10px;"><b>${name}</b> ` +
+				`<div class="cb-store" style="border:1px solid var(--border-color);border-radius:8px;` +
+					`padding:12px 14px;margin-bottom:10px;display:flex;align-items:center;">` +
+					`${provider_logo(e)}<div><b>${name}</b> ` +
 					`<span class="text-muted">${frappe.utils.escape_html(
 						e.message || __("quota unavailable")
-					)}</span></div>`
+					)}</span></div></div>`
 			);
 		}
 		const pct = Math.min(100, Math.round(e.percent * 100));
 		const bar = e.warn ? "progress-bar-danger" : "progress-bar-success";
 		return $(
-			`<div style="margin-bottom:12px;">` +
-				`<div><b>${name}</b> <span class="text-muted">${pct}% · ` +
-				`${fmt_bytes(e.used)} / ${e.total ? fmt_bytes(e.total) : "∞"}</span>` +
-				`${e.warn ? ` <span class="indicator-pill red">${__("Near limit")}</span>` : ""}</div>` +
-				`<div class="progress" style="height:10px;margin-top:4px;">` +
+			`<div class="cb-store" style="border:1px solid var(--border-color);border-radius:8px;` +
+				`padding:12px 14px;margin-bottom:10px;">` +
+				`<div style="display:flex;justify-content:space-between;align-items:center;">` +
+				`<span style="display:flex;align-items:center;">${provider_logo(e)}<b>${name}</b></span>` +
+				`${e.warn ? `<span class="indicator-pill red">${__("Near limit")}</span>` : ""}</div>` +
+				`<div class="text-muted" style="font-size:12px;margin:6px 0;">${pct}% · ` +
+				`${fmt_bytes(e.used)} / ${e.total ? fmt_bytes(e.total) : "∞"}</div>` +
+				`<div class="progress" style="height:10px;">` +
 				`<div class="progress-bar ${bar}" role="progressbar" style="width:${pct}%;"></div>` +
 				`</div></div>`
 		);
+	}
+
+	function trend_section(trend) {
+		const $col = $(`<div class="col-md-6"><h5>${__("Upload Trend")}</h5></div>`);
+		if (!trend.labels || !trend.labels.length) {
+			$col.append(`<div class="text-muted">${__("No data.")}</div>`);
+			return $col;
+		}
+		const $chart = $('<div class="cb-chart"></div>').appendTo($col);
+		frappe.require("charts.bundle.js", () => {
+			new frappe.Chart($chart.get(0), {
+				data: {
+					labels: trend.labels.map((d) => frappe.datetime.str_to_user(d)),
+					datasets: [
+						{ name: __("Completed"), values: trend.completed },
+						{ name: __("Failed"), values: trend.failed },
+					],
+				},
+				type: "line",
+				height: 220,
+				colors: ["#28a745", "#e03636"],
+				lineOptions: { hideDots: 0, regionFill: 1 },
+			});
+		});
+		return $col;
+	}
+
+	function recent_section(recent) {
+		const $wrap = $(`<div style="margin-top:8px;"><h5>${__("Recent Uploads")}</h5></div>`);
+		if (!recent.length) {
+			$wrap.append(`<div class="text-muted">${__("No uploads yet.")}</div>`);
+			return $wrap;
+		}
+		const head =
+			`<thead><tr><th>${__("File")}</th><th>${__("Provider")}</th>` +
+			`<th>${__("Type")}</th><th>${__("Size")}</th><th>${__("Status")}</th>` +
+			`<th>${__("When")}</th></tr></thead>`;
+		const rows = recent
+			.map((r) => {
+				const color = STATUS_COLOR[r.status] || "gray";
+				const file = frappe.utils.escape_html(r.remote_file || r.name);
+				const when = r.completed_at || r.creation;
+				return (
+					`<tr><td><a href="/app/cloud-backup-history/${encodeURIComponent(r.name)}">${file}</a></td>` +
+					`<td>${frappe.utils.escape_html(r.provider || "")}</td>` +
+					`<td>${frappe.utils.escape_html(r.backup_type || "")}</td>` +
+					`<td>${r.file_size ? fmt_bytes(r.file_size) : "—"}</td>` +
+					`<td><span class="indicator-pill ${color}">${frappe.utils.escape_html(r.status)}</span></td>` +
+					`<td class="text-muted">${when ? frappe.datetime.comment_when(when) : "—"}</td></tr>`
+				);
+			})
+			.join("");
+		$wrap.append(
+			`<div class="table-responsive"><table class="table table-hover">${head}<tbody>${rows}</tbody></table></div>`
+		);
+		return $wrap;
 	}
 
 	function fmt_bytes(n) {

@@ -1,7 +1,7 @@
 {
  "app": "cloud_backup",
  "charts": [],
- "content": "[{\"id\":\"cb_hdr\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Cloud Backup</span>\",\"col\":12}},{\"id\":\"cb_nc1\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Cloud Backup Uploads\",\"col\":4}},{\"id\":\"cb_nc2\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Cloud Backup Completed Uploads\",\"col\":4}},{\"id\":\"cb_nc3\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Cloud Backup Failed Uploads\",\"col\":4}},{\"id\":\"cb_spacer\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"cb_sc0\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Overview\",\"col\":3}},{\"id\":\"cb_sc1\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Health\",\"col\":3}},{\"id\":\"cb_sc2\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Failed Uploads\",\"col\":3}},{\"id\":\"cb_sc3\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Settings\",\"col\":3}},{\"id\":\"cb_c1\",\"type\":\"card\",\"data\":{\"card_name\":\"Configuration\",\"col\":4}},{\"id\":\"cb_c2\",\"type\":\"card\",\"data\":{\"card_name\":\"Monitoring\",\"col\":4}}]",
+ "content": "[{\"id\":\"cb_hdr\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Cloud Backup</span>\",\"col\":12}},{\"id\":\"cb_nc1\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Cloud Backup Uploads\",\"col\":4}},{\"id\":\"cb_nc2\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Cloud Backup Completed Uploads\",\"col\":4}},{\"id\":\"cb_nc3\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Cloud Backup Failed Uploads\",\"col\":4}},{\"id\":\"cb_spacer\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"cb_sc0\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Dashboard\",\"col\":4}},{\"id\":\"cb_sc2\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Failed Uploads\",\"col\":4}},{\"id\":\"cb_sc3\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Settings\",\"col\":4}},{\"id\":\"cb_c1\",\"type\":\"card\",\"data\":{\"card_name\":\"Configuration\",\"col\":4}},{\"id\":\"cb_c2\",\"type\":\"card\",\"data\":{\"card_name\":\"Monitoring\",\"col\":4}}]",
  "creation": "2026-08-14 00:00:00.000000",
  "custom_blocks": [],
  "docstatus": 0,
@@ -52,23 +52,14 @@
    "hidden": 0,
    "is_query_report": 0,
    "label": "Monitoring",
-   "link_count": 4,
+   "link_count": 3,
    "onboard": 0,
    "type": "Card Break"
   },
   {
    "hidden": 0,
    "is_query_report": 0,
-   "label": "Overview Dashboard",
-   "link_to": "Cloud Backup Overview",
-   "link_type": "Dashboard",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Health",
+   "label": "Dashboard",
    "link_to": "cloud-backup-dashboard",
    "link_type": "Page",
    "onboard": 0,
@@ -93,7 +84,7 @@
    "type": "Link"
   }
  ],
- "modified": "2026-08-15 15:00:00.000000",
+ "modified": "2026-08-15 16:30:00.000000",
  "modified_by": "Administrator",
  "module": "Cloud Backup",
  "name": "Cloud Backup",
@@ -121,14 +112,7 @@
   {
    "color": "Blue",
    "doc_view": "",
-   "label": "Overview",
-   "link_to": "Cloud Backup Overview",
-   "type": "Dashboard"
-  },
-  {
-   "color": "Green",
-   "doc_view": "",
-   "label": "Health",
+   "label": "Dashboard",
    "link_to": "cloud-backup-dashboard",
    "type": "Page"
   },
