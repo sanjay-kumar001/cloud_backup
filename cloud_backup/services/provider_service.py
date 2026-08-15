@@ -46,7 +46,14 @@ def _build_config(doc: Document) -> dict:
 		"destination_folder": doc.destination_folder,
 	}
 	if doc.provider_type in OBJECT_PROVIDERS:
-		config.update({"bucket": doc.bucket, "region": doc.region})
+		config.update(
+			{
+				"bucket": doc.bucket,
+				"region": doc.region,
+				"client_id": doc.get_password("client_id", raise_exception=False),
+				"client_secret": doc.get_password("client_secret", raise_exception=False),
+			}
+		)
 	else:
 		config.update(
 			{

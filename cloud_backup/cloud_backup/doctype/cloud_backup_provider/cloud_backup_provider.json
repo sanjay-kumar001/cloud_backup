@@ -12,6 +12,7 @@
   "storage_kind",
   "sb_credentials",
   "gdrive_credentials_note",
+  "s3_credentials_note",
   "client_id",
   "client_secret",
   "cb_credentials",
@@ -75,6 +76,13 @@
    "fieldtype": "HTML",
    "label": "Google Drive Credentials Note",
    "options": "<p class=\"text-muted\">Google Drive uses the Client ID and Client Secret from <a href=\"/app/google-settings\">Google Settings</a>. No credentials are needed here \u2014 <a href=\"#\" class=\"cb-authorize-link\"><b>Authorize</b></a> with Google.</p>"
+  },
+  {
+   "depends_on": "eval:doc.provider_type=='amazon_s3'",
+   "fieldname": "s3_credentials_note",
+   "fieldtype": "HTML",
+   "label": "Amazon S3 Credentials Note",
+   "options": "<p class=\"text-muted\">For Amazon S3, enter your <b>Access Key ID</b> as Client ID and <b>Secret Access Key</b> as Client Secret, then set the Bucket and Region below.</p>"
   },
   {
    "depends_on": "eval:doc.provider_type && doc.provider_type!='google_drive'",
@@ -181,7 +189,7 @@
   }
  ],
  "links": [],
- "modified": "2026-08-15 16:35:00.000000",
+ "modified": "2026-08-15 17:00:00.000000",
  "modified_by": "Administrator",
  "module": "Cloud Backup",
  "name": "Cloud Backup Provider",

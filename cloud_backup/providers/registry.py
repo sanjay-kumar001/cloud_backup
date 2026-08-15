@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+from cloud_backup.providers.amazon_s3.provider import AmazonS3Provider
 from cloud_backup.providers.base import CloudBackupProvider
 from cloud_backup.providers.dropbox.provider import DropboxProvider
 from cloud_backup.providers.google_drive.provider import GoogleDriveProvider
@@ -15,6 +16,7 @@ PROVIDER_REGISTRY: dict[str, type[CloudBackupProvider]] = {
 	GoogleDriveProvider.provider_type: GoogleDriveProvider,
 	OneDriveProvider.provider_type: OneDriveProvider,
 	DropboxProvider.provider_type: DropboxProvider,
+	AmazonS3Provider.provider_type: AmazonS3Provider,
 }
 
 

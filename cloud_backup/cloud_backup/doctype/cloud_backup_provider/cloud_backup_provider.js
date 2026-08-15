@@ -70,10 +70,15 @@ frappe.ui.form.on("Cloud Backup Provider", {
 				cloud_backup.provider.test_connection(frm)
 			);
 		}
-		if (frm.doc.storage_kind === "folder" && authorized) {
-			frm.add_custom_button(__("Select Destination Folder"), () =>
-				cloud_backup.provider.open_folder_browser(frm)
-			);
+		const can_browse =
+			(frm.doc.storage_kind === "folder" && authorized) ||
+			(frm.doc.storage_kind === "object" && frm.doc.bucket);
+		if (can_browse) {
+			const label =
+				frm.doc.storage_kind === "object"
+					? __("Select Destination Prefix")
+					: __("Select Destination Folder");
+			frm.add_custom_button(label, () => cloud_backup.provider.open_folder_browser(frm));
 		}
 	},
 
