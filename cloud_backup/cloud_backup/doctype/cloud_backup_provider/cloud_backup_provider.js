@@ -3,11 +3,15 @@
 
 frappe.ui.form.on("Cloud Backup Provider", {
 	refresh(frm) {
-		frm.trigger("set_status_indicator");
 		frm.trigger("render_actions");
-		frm.trigger("flash_authorization_result");
 		frm.trigger("bind_authorize_link");
 		frm.trigger("render_redirect_note");
+		if (frm.is_new()) {
+			frm.dashboard.clear_headline();
+			return;
+		}
+		frm.trigger("set_status_indicator");
+		frm.trigger("flash_authorization_result");
 	},
 
 	render_redirect_note(frm) {
@@ -83,15 +87,20 @@ frappe.ui.form.on("Cloud Backup Provider", {
 	},
 
 	flash_authorization_result(frm) {
-		// Callbacks append cb_authorized=1 when the provider returned no error,
-		// even if the token exchange failed — so trust the persisted
-		// authentication_status, not the URL param.
-		if (frappe.utils.get_url_arg("cb_authorized") === null) {
+		// Only after an OAuth callback on a saved provider.
+		if (frm.is_new() || frappe.utils.get_url_arg("cb_authorized") === null) {
 			return;
 		}
-		const ok = frm.doc.authentication_status === "Authorized";
-		if (ok) {
+		frm.trigger("clear_authorization_args");
+		if (frm.doc.authentication_status === "Authorized") {
 			frappe.show_alert({ message: __("Provider authorized"), indicator: "green" });
+			return;
+		}
+		// GDrive uses core Google Settings; others use creds here.
+		if (
+			frm.doc.provider_type !== "google_drive" &&
+			!(frm.doc.client_id && frm.doc.client_secret)
+		) {
 			return;
 		}
 		const reason = frappe.utils.get_url_arg("cb_reason");
@@ -104,7 +113,17 @@ frappe.ui.form.on("Cloud Backup Provider", {
 		});
 	},
 
+	clear_authorization_args() {
+		const url = new URL(window.location.href);
+		url.searchParams.delete("cb_authorized");
+		url.searchParams.delete("cb_reason");
+		history.replaceState(null, "", url.toString());
+	},
+
 	set_status_indicator(frm) {
+		if (frm.is_new()) {
+			return;
+		}
 		const map = {
 			"Not Configured": "gray",
 			Authorized: "green",
@@ -112,6 +131,7 @@ frappe.ui.form.on("Cloud Backup Provider", {
 			Failed: "red",
 		};
 		const status = frm.doc.authentication_status;
+		frm.dashboard.clear_headline();
 		if (status) {
 			frm.dashboard.set_headline(
 				`<span class="indicator ${map[status] || "gray"}">${frappe.utils.escape_html(
