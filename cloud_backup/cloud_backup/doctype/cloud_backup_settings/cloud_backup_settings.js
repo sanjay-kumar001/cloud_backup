@@ -3,6 +3,7 @@
 
 frappe.ui.form.on("Cloud Backup Settings", {
 	refresh(frm) {
+		frm.trigger("filter_authorized_providers");
 		frm.trigger("render_status_banner");
 		frm.add_custom_button(__("Upload Latest Backup"), () =>
 			cloud_backup.settings.upload_latest(frm)
@@ -10,6 +11,12 @@ frappe.ui.form.on("Cloud Backup Settings", {
 		frm.add_custom_button(__("Run Cleanup Now"), () =>
 			cloud_backup.settings.run_cleanup(frm)
 		);
+	},
+
+	filter_authorized_providers(frm) {
+		const query = () => ({ filters: { authentication_status: "Authorized" } });
+		frm.set_query("default_provider", query);
+		frm.set_query("fallback_provider", query);
 	},
 
 	render_status_banner(frm) {

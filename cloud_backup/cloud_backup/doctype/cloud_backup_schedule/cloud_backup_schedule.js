@@ -3,6 +3,9 @@
 
 frappe.ui.form.on("Cloud Backup Schedule", {
 	refresh(frm) {
+		frm.set_query("provider", () => ({
+			filters: { authentication_status: "Authorized" },
+		}));
 		if (frm.is_new()) {
 			return;
 		}
