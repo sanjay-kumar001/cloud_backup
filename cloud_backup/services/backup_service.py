@@ -58,12 +58,17 @@ def enqueue_upload(provider: str, backup_type: str, trigger: str = "manual") -> 
 	if any(not _exists(latest.get(key)) for key in keys):
 		latest = _generate_backup(wants_files=bool({"public", "private"} & set(keys)))
 	names: list[str] = []
+	found = False
 	for key in keys:
 		path = latest.get(key)
 		if not _exists(path):
 			continue
+		found = True
+		# Dedupe against the after-backup auto-upload patch.
+		if already_uploaded(path, provider):
+			continue
 		names.append(_create_and_enqueue(provider, backup_type, key, path, trigger))
-	if not names:
+	if not found:
 		raise InvalidConfiguration("No backup file found to upload")
 	return names
 
