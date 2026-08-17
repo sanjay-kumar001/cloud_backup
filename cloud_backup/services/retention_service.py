@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+import re
+
 import frappe
 from frappe.utils import add_to_date, get_datetime, now_datetime
 
@@ -115,11 +117,29 @@ def _managed_rows(provider: str) -> list[dict]:
 	)
 
 
+_ARTIFACT_RE = re.compile(r"_(database|files|private-files)_\d{8}_\d{6}")
+
+
+def _artifact_group(remote_file: str | None) -> str:
+	"""Artifact kind (database/files/private-files) from the remote filename."""
+	match = _ARTIFACT_RE.search(remote_file or "")
+	return match.group(1) if match else "other"
+
+
 def _select_for_deletion(rows: list[dict], settings) -> list[dict]:
 	"""Rows outside the configured count/age policy (only managed rows enter here)."""
 	if settings.retention_type == "Count":
 		keep = int(settings.retention_count or 0)
-		return rows[keep:] if keep > 0 else []
+		if keep <= 0:
+			return []
+		# Count applies per artifact kind, not across mixed types.
+		groups: dict[str, list[dict]] = {}
+		for row in rows:
+			groups.setdefault(_artifact_group(row["remote_file"]), []).append(row)
+		to_delete: list[dict] = []
+		for group_rows in groups.values():
+			to_delete.extend(group_rows[keep:])
+		return to_delete
 	if settings.retention_type == "Age":
 		days = int(settings.retention_days or 0)
 		if days <= 0:
