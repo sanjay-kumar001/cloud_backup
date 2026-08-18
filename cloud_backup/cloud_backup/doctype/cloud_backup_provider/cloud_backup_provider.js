@@ -166,15 +166,51 @@ cloud_backup.provider.test_connection = function (frm) {
 		});
 };
 
+cloud_backup.provider.inject_browser_styles = function () {
+	if (document.getElementById("cb-folder-browser-styles")) {
+		return;
+	}
+	const css = `
+	.cb-fb { display:flex; flex-direction:column; gap:12px; }
+	.cb-fb-bar { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+	.cb-fb-crumbs { display:flex; flex-wrap:wrap; align-items:center; gap:2px; font-size:var(--text-md); min-height:24px; }
+	.cb-fb-crumb { color:var(--text-muted); cursor:pointer; padding:2px 6px; border-radius:var(--border-radius); white-space:nowrap; }
+	.cb-fb-crumb:hover { background:var(--bg-light-gray); color:var(--text-color); }
+	.cb-fb-crumb.active { color:var(--text-color); font-weight:600; cursor:default; }
+	.cb-fb-crumb.active:hover { background:none; }
+	.cb-fb-sep { color:var(--text-light); }
+	.cb-fb-list { border:1px solid var(--border-color); border-radius:var(--border-radius-md); overflow:hidden auto; max-height:320px; min-height:220px; background:var(--card-bg); }
+	.cb-fb-row { display:flex; align-items:center; gap:10px; padding:9px 12px; cursor:pointer; border-bottom:1px solid var(--border-color); transition:background .1s; }
+	.cb-fb-row:last-child { border-bottom:none; }
+	.cb-fb-row:hover { background:var(--bg-light-gray); }
+	.cb-fb-row .cb-fb-ficon { color:var(--yellow-500, #eab308); font-size:16px; width:18px; text-align:center; }
+	.cb-fb-row .cb-fb-name { flex:1; color:var(--text-color); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+	.cb-fb-row .cb-fb-open { color:var(--text-light); opacity:0; transition:opacity .1s; }
+	.cb-fb-row:hover .cb-fb-open { opacity:1; }
+	.cb-fb-state { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; height:220px; color:var(--text-muted); text-align:center; }
+	.cb-fb-state .cb-fb-bigicon { font-size:28px; opacity:.5; }
+	.cb-fb-selected { display:flex; align-items:center; gap:8px; padding:8px 12px; background:var(--bg-light-gray); border-radius:var(--border-radius-md); font-size:var(--text-sm); }
+	.cb-fb-selected .cb-fb-sel-label { color:var(--text-muted); }
+	.cb-fb-selected .cb-fb-sel-path { color:var(--text-color); font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+	`;
+	const style = document.createElement("style");
+	style.id = "cb-folder-browser-styles";
+	style.textContent = css;
+	document.head.appendChild(style);
+};
+
 cloud_backup.provider.open_folder_browser = function (frm) {
+	cloud_backup.provider.inject_browser_styles();
 	const provider = frm.doc.name;
-	let path = [{ id: frm.doc.root_folder || "root", name: __("Root") }];
+	const objectKind = frm.doc.storage_kind === "object";
+	const rootLabel = objectKind ? __("Bucket Root") : __("My Drive");
+	let path = [{ id: frm.doc.root_folder || "root", name: rootLabel }];
 
 	const dialog = new frappe.ui.Dialog({
-		title: __("Select Destination Folder"),
+		title: objectKind ? __("Select Destination Prefix") : __("Select Destination Folder"),
 		size: "large",
 		fields: [{ fieldtype: "HTML", fieldname: "browser" }],
-		primary_action_label: __("Use Current Folder"),
+		primary_action_label: __("Use This Folder"),
 		primary_action() {
 			const current = path[path.length - 1];
 			frm.set_value("destination_folder", current.id);
@@ -186,58 +222,86 @@ cloud_backup.provider.open_folder_browser = function (frm) {
 
 	const $body = dialog.fields_dict.browser.$wrapper;
 	const current = () => path[path.length - 1];
+	const esc = frappe.utils.escape_html;
 
-	function render(folders) {
-		const crumbs = path
-			.map(
-				(p, i) =>
-					`<a href="#" class="cb-crumb" data-idx="${i}">${frappe.utils.escape_html(
-						p.name
-					)}</a>`
-			)
-			.join(" / ");
-		const rows = folders.length
-			? folders
-					.map(
-						(f) =>
-							`<div class="cb-folder-row list-row" data-id="${frappe.utils.escape_html(
-								f.id
-							)}" data-name="${frappe.utils.escape_html(
-								f.name
-							)}" style="cursor:pointer;padding:6px 4px;"><i class="fa fa-folder-o"></i> ${frappe.utils.escape_html(
-								f.name
-							)}</div>`
-					)
-					.join("")
-			: `<div class="text-muted" style="padding:6px 4px;">${__("No subfolders")}</div>`;
+	function crumbs_html() {
+		return path
+			.map((p, i) => {
+				const active = i === path.length - 1 ? " active" : "";
+				const sep = i > 0 ? `<span class="cb-fb-sep"><i class="fa fa-angle-right"></i></span>` : "";
+				return `${sep}<span class="cb-fb-crumb${active}" data-idx="${i}">${esc(p.name)}</span>`;
+			})
+			.join("");
+	}
+
+	function shell(inner) {
 		$body.html(
-			`<div class="cb-crumbs text-muted" style="margin-bottom:8px;">${crumbs}</div>` +
-				`<div style="margin-bottom:8px;"><button class="btn btn-xs btn-default cb-new-folder">${__(
-					"New Folder"
-				)}</button></div>` +
-				`<div class="cb-folder-list">${rows}</div>`
+			`<div class="cb-fb">` +
+				`<div class="cb-fb-bar">` +
+					`<div class="cb-fb-crumbs">${crumbs_html()}</div>` +
+					`<button class="btn btn-xs btn-default cb-fb-new"><i class="fa fa-plus"></i> ${__(
+						"New Folder"
+					)}</button>` +
+				`</div>` +
+				`<div class="cb-fb-list">${inner}</div>` +
+				`<div class="cb-fb-selected">` +
+					`<span class="cb-fb-sel-label">${__("Selected")}:</span>` +
+					`<span class="cb-fb-sel-path">${esc(path.map((p) => p.name).join(" / "))}</span>` +
+				`</div>` +
+			`</div>`
 		);
-		$body.find(".cb-folder-row").on("click", function () {
-			path.push({ id: $(this).data("id"), name: $(this).data("name") });
-			load();
-		});
-		$body.find(".cb-crumb").on("click", function (e) {
-			e.preventDefault();
+		$body.find(".cb-fb-crumb:not(.active)").on("click", function () {
 			path = path.slice(0, cint($(this).data("idx")) + 1);
 			load();
 		});
-		$body.find(".cb-new-folder").on("click", () => new_folder());
+		$body.find(".cb-fb-new").on("click", () => new_folder());
+	}
+
+	function render(folders) {
+		if (!folders.length) {
+			shell(
+				`<div class="cb-fb-state">` +
+					`<div class="cb-fb-bigicon"><i class="fa fa-folder-open-o"></i></div>` +
+					`<div>${__("This folder is empty")}</div>` +
+				`</div>`
+			);
+			return;
+		}
+		const rows = folders
+			.map(
+				(f) =>
+					`<div class="cb-fb-row" data-id="${esc(f.id)}" data-name="${esc(f.name)}">` +
+						`<span class="cb-fb-ficon"><i class="fa fa-folder"></i></span>` +
+						`<span class="cb-fb-name">${esc(f.name)}</span>` +
+						`<span class="cb-fb-open"><i class="fa fa-angle-right"></i></span>` +
+					`</div>`
+			)
+			.join("");
+		shell(rows);
+		$body.find(".cb-fb-row").on("click", function () {
+			path.push({ id: $(this).data("id"), name: $(this).data("name") });
+			load();
+		});
 	}
 
 	function load() {
-		$body.html(`<div class="text-muted">${__("Loading...")}</div>`);
+		shell(
+			`<div class="cb-fb-state">` +
+				`<div class="cb-fb-bigicon"><i class="fa fa-spinner fa-spin"></i></div>` +
+				`<div>${__("Loading folders...")}</div>` +
+			`</div>`
+		);
 		frappe
-			.xcall("cloud_backup.api.provider.list_folders", {
-				provider,
-				parent_id: current().id,
-			})
+			.xcall("cloud_backup.api.provider.list_folders", { provider, parent_id: current().id })
 			.then(render)
-			.catch(() => $body.html(`<div class="text-danger">${__("Failed to list folders")}</div>`));
+			.catch(() =>
+				shell(
+					`<div class="cb-fb-state text-danger">` +
+						`<div class="cb-fb-bigicon"><i class="fa fa-exclamation-triangle"></i></div>` +
+						`<div>${__("Could not load folders")}</div>` +
+					`</div>`
+				)
+			);
 	}
 
 	function new_folder() {
