@@ -32,58 +32,81 @@ class _Settings:
 		self.__dict__.update(kw)
 
 
+def _stamp(hours_ago: int) -> str:
+	return add_to_date(now_datetime(), hours=-hours_ago).strftime("%Y%m%d_%H%M%S")
+
+
 class TestRetentionSelection(unittest.TestCase):
-	def _rows(self, n):
-		return [
-			{"name": f"r{i}", "remote_file": f"R{i}", "completed_at": add_to_date(now_datetime(), hours=-i)}
-			for i in range(n)
-		]
+	def _items(self, n, label="database"):
+		# Newest first (i=0) so the oldest are the last generated.
+		return [{"id": f"R{i}", "label": label, "stamp": _stamp(i)} for i in range(n)]
 
 	def test_count_keeps_latest(self):
+		items = self._items(12)
 		sel = retention_service._select_for_deletion(
-			self._rows(12), _Settings(retention_type="Count", retention_count=10, retention_days=0)
+			items, _Settings(retention_type="Count", retention_count=10, retention_days=0)
 		)
-		self.assertEqual({r["name"] for r in sel}, {"r10", "r11"})
+		self.assertEqual({r["id"] for r in sel}, {"R10", "R11"})
+
+	def test_count_is_per_artifact_type(self):
+		# 6 database + 6 files, keep 5 each -> delete the oldest of each type.
+		items = self._items(6, "database") + self._items(6, "files")
+		sel = retention_service._select_for_deletion(
+			items, _Settings(retention_type="Count", retention_count=5, retention_days=0)
+		)
+		self.assertEqual(len(sel), 2)
+		self.assertEqual({r["label"] for r in sel}, {"database", "files"})
 
 	def test_count_zero_keeps_all(self):
 		sel = retention_service._select_for_deletion(
-			self._rows(5), _Settings(retention_type="Count", retention_count=0, retention_days=0)
+			self._items(5), _Settings(retention_type="Count", retention_count=0, retention_days=0)
 		)
 		self.assertEqual(sel, [])
 
 	def test_age_deletes_old_only(self):
-		rows = [
-			{"name": "old", "remote_file": "o", "completed_at": add_to_date(now_datetime(), days=-40)},
-			{"name": "new", "remote_file": "n", "completed_at": add_to_date(now_datetime(), days=-5)},
+		items = [
+			{"id": "old", "label": "database", "stamp": _stamp(24 * 40)},
+			{"id": "new", "label": "database", "stamp": _stamp(24 * 5)},
 		]
 		sel = retention_service._select_for_deletion(
-			rows, _Settings(retention_type="Age", retention_days=30, retention_count=0)
+			items, _Settings(retention_type="Age", retention_days=30, retention_count=0)
 		)
-		self.assertEqual([r["name"] for r in sel], ["old"])
+		self.assertEqual([r["id"] for r in sel], ["old"])
+
+
+class _FakeProvider:
+	def __init__(self, files, deleted):
+		self._files = files
+		self._deleted = deleted
+
+	def list_files(self, folder_id=None):
+		return self._files
+
+	def delete_file(self, file_id):
+		self._deleted.append(file_id)
 
 
 class TestRetentionSafety(FrappeTestCase):
-	def test_deletes_only_managed_rows(self):
+	def test_reconciles_remote_including_orphans(self):
 		provider = make_provider("google_drive", destination_folder="RF")
-		tmp = frappe.get_site_path("private", "backups", "cb_ret.sql.gz")
-		with open(tmp, "wb") as f:
-			f.write(b"x")
-		made = []
-		for i in range(12):
-			d = frappe.get_doc(
-				{
-					"doctype": "Cloud Backup History",
-					"site": frappe.local.site,
-					"provider": provider.name,
-					"backup_type": "database",
-					"local_file": tmp,
-					"local_file_size": 1,
-					"status": "Completed",
-					"remote_file": f"RID{i}",
-				}
-			).insert(ignore_permissions=True)
-			d.db_set("completed_at", add_to_date(now_datetime(), hours=-i))
-			made.append(d.name)
+		# 12 app-named remote files; only the newest two carry a History row.
+		remote = [
+			{"id": f"RID{i}", "name": f"site_database_{_stamp(i)}.sql.gz", "size": 1} for i in range(12)
+		]
+		# An unrelated file the app never named must be left untouched.
+		remote.append({"id": "KEEP", "name": "user_upload.txt", "size": 1})
+		tracked = frappe.get_doc(
+			{
+				"doctype": "Cloud Backup History",
+				"site": frappe.local.site,
+				"provider": provider.name,
+				"backup_type": "database",
+				"local_file": "/tmp/x.sql.gz",
+				"local_file_size": 1,
+				"status": "Completed",
+				"remote_file": "RID11",
+			}
+		).insert(ignore_permissions=True)
 
 		frappe.db.set_value(
 			"Cloud Backup Settings",
@@ -91,11 +114,13 @@ class TestRetentionSafety(FrappeTestCase):
 			{"auto_delete_remote": 1, "retention_type": "Count", "retention_count": 10},
 		)
 		deleted = []
-		self.patch(provider_service, "get_provider", lambda p: type("P", (), {"delete_file": lambda s, f: deleted.append(f)})())
-		result = retention_service.run_cleanup()
+		self.patch(provider_service, "get_provider", lambda p: _FakeProvider(remote, deleted))
+		result = retention_service.run_cleanup(provider=provider.name)
 		self.assertEqual(result["deleted"], 2)
 		self.assertEqual(set(deleted), {"RID10", "RID11"})
-		self.assertEqual(frappe.db.get_value("Cloud Backup History", made[0], "remote_deleted"), 0)
+		self.assertNotIn("KEEP", deleted)
+		# The deleted file that had a History row is marked; orphans just vanish.
+		self.assertEqual(frappe.db.get_value("Cloud Backup History", tracked.name, "remote_deleted"), 1)
 
 	def patch(self, obj, attr, value):
 		original = getattr(obj, attr)

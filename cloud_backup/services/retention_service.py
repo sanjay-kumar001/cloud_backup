@@ -6,9 +6,10 @@
 from __future__ import annotations
 
 import re
+from datetime import datetime
 
 import frappe
-from frappe.utils import add_to_date, get_datetime, now_datetime
+from frappe.utils import add_to_date, now_datetime
 
 from cloud_backup.cloud_backup.doctype.cloud_backup_settings.cloud_backup_settings import (
 	get_cloud_backup_settings,
@@ -50,24 +51,40 @@ def run_cleanup(dry_run: bool = False, provider: str | None = None) -> dict:
 
 
 def _cleanup_provider(provider: str, settings, result: dict, dry_run: bool) -> None:
-	"""Delete this provider's managed remote files outside the retention policy."""
-	rows = _managed_rows(provider)
-	to_delete = _select_for_deletion(rows, settings)
-	result["candidates"] += len(to_delete)
-	if not to_delete or not backup_service.is_provider_ready(provider) or dry_run:
+	"""Reconcile this provider's destination folder against the retention policy.
+
+	Lists the remote folder, keeps only files this app named, and deletes the
+	ones outside the policy — including orphans whose History row was lost.
+	"""
+	if not backup_service.is_provider_ready(provider):
 		return
-	instance = provider_service.get_provider(provider)
-	for row in to_delete:
+	try:
+		instance = provider_service.get_provider(provider)
+		remote = instance.list_files(_destination(provider))
+	except CloudBackupError as exc:
+		log_service.write_log(
+			"cleanup_error", str(exc), level="ERROR", source=SOURCE, details={"provider": provider}
+		)
+		return
+	managed = [m for m in (_classify(f) for f in remote) if m]
+	to_delete = _select_for_deletion(managed, settings)
+	result["candidates"] += len(to_delete)
+	if not to_delete or dry_run:
+		return
+	tracked = _history_by_remote_id(provider)
+	for item in to_delete:
 		try:
-			instance.delete_file(row["remote_file"])
+			instance.delete_file(item["id"])
 		except CloudBackupError as exc:
 			log_service.write_log(
-				"cleanup_error", str(exc), level="ERROR", source=SOURCE, details={"history": row["name"]}
+				"cleanup_error", str(exc), level="ERROR", source=SOURCE, details={"remote_file": item["id"]}
 			)
 			continue
-		frappe.db.set_value(
-			"Cloud Backup History", row["name"], {"remote_deleted": 1, "deleted_at": now_datetime()}
-		)
+		history = tracked.get(item["id"])
+		if history:
+			frappe.db.set_value(
+				"Cloud Backup History", history, {"remote_deleted": 1, "deleted_at": now_datetime()}
+			)
 		frappe.db.commit()
 		result["deleted"] += 1
 
@@ -86,67 +103,86 @@ def _purge_history(settings, dry_run: bool) -> int:
 	if dry_run:
 		return len(names)
 	for name in names:
-		frappe.delete_doc("Cloud Backup History", name, ignore_permissions=True, force=True, delete_permanently=True)
+		frappe.delete_doc(
+			"Cloud Backup History", name, ignore_permissions=True, force=True, delete_permanently=True
+		)
 	if names:
 		frappe.db.commit()
 	return len(names)
 
 
 def _managed_providers() -> list[str]:
-	"""Providers that own at least one live managed remote file."""
-	return frappe.get_all(
-		"Cloud Backup History",
-		filters={"status": "Completed", "remote_deleted": 0, "remote_file": ["is", "set"]},
-		distinct=True,
-		pluck="provider",
+	"""Providers to reconcile: any that ever uploaded, plus the active targets."""
+	providers = set(
+		frappe.get_all(
+			"Cloud Backup History", filters={"remote_file": ["is", "set"]}, distinct=True, pluck="provider"
+		)
 	)
+	settings = get_cloud_backup_settings()
+	providers.update(p for p in (settings.default_provider, settings.fallback_provider) if p)
+	return [p for p in providers if p]
 
 
-def _managed_rows(provider: str) -> list[dict]:
-	"""Live managed uploads for a provider, newest first."""
-	return frappe.get_all(
-		"Cloud Backup History",
-		filters={
-			"provider": provider,
-			"status": "Completed",
-			"remote_deleted": 0,
-			"remote_file": ["is", "set"],
-		},
-		fields=["name", "remote_file", "completed_at"],
-		order_by="completed_at desc",
+def _destination(provider: str) -> str | None:
+	"""Return the folder this provider uploads into (destination or root)."""
+	config = frappe.db.get_value(
+		"Cloud Backup Provider", provider, ["destination_folder", "root_folder"], as_dict=True
 	)
+	return config and (config.destination_folder or config.root_folder)
 
 
-_ARTIFACT_RE = re.compile(r"_(database|files|private-files)_\d{8}_\d{6}")
+def _history_by_remote_id(provider: str) -> dict[str, str]:
+	"""Map live remote-file id -> History name for this provider."""
+	rows = frappe.get_all(
+		"Cloud Backup History",
+		filters={"provider": provider, "remote_file": ["is", "set"], "remote_deleted": 0},
+		fields=["name", "remote_file"],
+	)
+	return {r.remote_file: r.name for r in rows}
 
 
-def _artifact_group(remote_file: str | None) -> str:
-	"""Artifact kind (database/files/private-files) from the remote filename."""
-	match = _ARTIFACT_RE.search(remote_file or "")
-	return match.group(1) if match else "other"
+# Remote names built by build_remote_filename: {site}_{label}_{YYYYMMDD_HHMMSS}{ext}
+_ARTIFACT_RE = re.compile(r"_(database|files|private-files)_(\d{8}_\d{6})\.(?:sql\.gz|tar)(?:\.gpg)?$")
 
 
-def _select_for_deletion(rows: list[dict], settings) -> list[dict]:
-	"""Rows outside the configured count/age policy (only managed rows enter here)."""
+def _classify(remote_file: dict) -> dict | None:
+	"""Return {id, label, stamp} for an app-named remote file, else None."""
+	match = _ARTIFACT_RE.search(remote_file.get("name") or "")
+	if not match:
+		return None
+	return {"id": remote_file["id"], "label": match.group(1), "stamp": match.group(2)}
+
+
+def _select_for_deletion(managed: list[dict], settings) -> list[dict]:
+	"""App-named remote files outside the configured count/age policy."""
 	if settings.retention_type == "Count":
 		keep = int(settings.retention_count or 0)
 		if keep <= 0:
 			return []
 		# Count applies per artifact kind, not across mixed types.
 		groups: dict[str, list[dict]] = {}
-		for row in rows:
-			groups.setdefault(_artifact_group(row["remote_file"]), []).append(row)
+		for item in managed:
+			groups.setdefault(item["label"], []).append(item)
 		to_delete: list[dict] = []
-		for group_rows in groups.values():
-			to_delete.extend(group_rows[keep:])
+		for group in groups.values():
+			group.sort(key=lambda i: i["stamp"], reverse=True)
+			to_delete.extend(group[keep:])
 		return to_delete
 	if settings.retention_type == "Age":
 		days = int(settings.retention_days or 0)
 		if days <= 0:
 			return []
 		cutoff = add_to_date(now_datetime(), days=-days)
-		return [r for r in rows if r["completed_at"] and get_datetime(r["completed_at"]) < cutoff]
+		return [i for i in managed if _parse_stamp(i["stamp"]) and _parse_stamp(i["stamp"]) < cutoff]
 	return []
+
+
+def _parse_stamp(stamp: str):
+	"""Parse a YYYYMMDD_HHMMSS backup stamp; None when malformed."""
+	try:
+		return datetime.strptime(stamp, "%Y%m%d_%H%M%S")
+	except ValueError:
+		return None
 
 
 def _write_last_cleanup(result: dict) -> None:
