@@ -58,11 +58,31 @@ def run(history: str, artifact: str | None = None, trigger: str = "manual") -> s
 		log_service.write_log(
 			"upload_failed", message, level="ERROR", source=SOURCE, details={"history": doc.name}
 		)
+		failover = _attempt_failover(doc, artifact, trigger)
+		tail = " Retrying on the fallback provider." if failover else ""
 		notification_service.notify(
-			f"Cloud Backup failed: {doc.site}", f"Backup upload failed: {message}"
+			f"Cloud Backup failed: {doc.site}", f"Backup upload failed: {message}.{tail}"
 		)
 		raise
 	return doc.name
+
+
+def _attempt_failover(doc, artifact: str | None, trigger: str) -> str | None:
+	"""Re-queue a failed upload on the next ready provider; skip re-entrant hops."""
+	if trigger in ("failover", "retry"):
+		return None
+	from cloud_backup.services import backup_service
+
+	target = backup_service.enqueue_failover(doc.provider, artifact, doc.local_file, doc.backup_type)
+	if target:
+		log_service.write_log(
+			"upload_failover",
+			f"Re-queued to fallback provider as {target}",
+			level="WARNING",
+			source=SOURCE,
+			details={"from": doc.name, "to": target},
+		)
+	return target
 
 
 def _upload_with_retry(doc, provider, target: str, remote_name: str) -> dict:
@@ -73,9 +93,10 @@ def _upload_with_retry(doc, provider, target: str, remote_name: str) -> dict:
 		except CloudBackupError as exc:
 			if not exc.retryable or attempt == UPLOAD_MAX_ATTEMPTS - 1:
 				raise
-			wait = getattr(exc, "retry_after", None) or UPLOAD_BACKOFF_SECONDS[
-				min(attempt, len(UPLOAD_BACKOFF_SECONDS) - 1)
-			]
+			wait = (
+				getattr(exc, "retry_after", None)
+				or UPLOAD_BACKOFF_SECONDS[min(attempt, len(UPLOAD_BACKOFF_SECONDS) - 1)]
+			)
 			_set(doc, status="Retrying", retry_count=(doc.retry_count or 0) + 1)
 			log_service.write_log(
 				"upload_retry",
@@ -97,9 +118,9 @@ def _verify(doc, provider, result: dict) -> None:
 		_set(doc, verification_status="Failed")
 		return
 	size_ok = meta.get("size") and int(meta["size"]) == int(doc.local_file_size or 0)
-	checksum_ok = not (result.get("checksum") and meta.get("checksum")) or result.get(
+	checksum_ok = not (result.get("checksum") and meta.get("checksum")) or result.get("checksum") == meta.get(
 		"checksum"
-	) == meta.get("checksum")
+	)
 	verified = bool(size_ok and checksum_ok)
 	_set(doc, verification_status="Verified" if verified else "Failed")
 	if not verified:

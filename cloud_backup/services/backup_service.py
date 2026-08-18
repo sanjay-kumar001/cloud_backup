@@ -44,7 +44,11 @@ _ACTIVE_STATUSES = ("Queued", "Processing", "Uploading", "Verifying", "Completed
 def find_latest_backup() -> dict[str, str | None]:
 	"""Return absolute paths of the latest {database, public, private} backups."""
 	latest = fetch_latest_backups()
-	return {"database": latest.get("database"), "public": latest.get("public"), "private": latest.get("private")}
+	return {
+		"database": latest.get("database"),
+		"public": latest.get("public"),
+		"private": latest.get("private"),
+	}
 
 
 def enqueue_upload(provider: str, backup_type: str, trigger: str = "manual") -> list[str]:
@@ -92,14 +96,59 @@ def _exists(path: str | None) -> bool:
 
 def enqueue_after_backup(odb, trigger: str = "auto") -> list[str]:
 	"""Auto-upload entry (patch path): enqueue artifacts from a finished backup."""
-	return _auto_enqueue(lambda artifact: getattr(odb, ARTIFACT_PATH_ATTR[artifact], None), trigger)
+	settings = get_cloud_backup_settings()
+	provider = _resolve_auto_target(settings)
+	if not provider:
+		return []
+	artifacts = get_selected_artifacts(settings)
+	# The bench-backup cron runs ignore_files=True, so a files/full policy has
+	# no on-disk public/private dumps to upload; materialize them here.
+	_ensure_file_artifacts(odb, artifacts)
+	return _enqueue_artifacts(
+		provider, artifacts, lambda artifact: getattr(odb, ARTIFACT_PATH_ATTR[artifact], None), trigger
+	)
 
 
 def auto_enqueue_latest(trigger: str = "fallback") -> list[str]:
 	"""Auto-upload entry (fallback poller): enqueue artifacts from the latest backup."""
+	settings = get_cloud_backup_settings()
+	provider = _resolve_auto_target(settings)
+	if not provider:
+		return []
 	latest = find_latest_backup()
 	key = {"database": "database", "public": "public", "private": "private"}
-	return _auto_enqueue(lambda artifact: latest.get(key[artifact]), trigger)
+	return _enqueue_artifacts(
+		provider, get_selected_artifacts(settings), lambda artifact: latest.get(key[artifact]), trigger
+	)
+
+
+def _ensure_file_artifacts(odb, artifacts) -> None:
+	"""Generate public/private dumps a files-ignored backup skipped."""
+	if not ({"public", "private"} & set(artifacts)):
+		return
+	if _exists(getattr(odb, "backup_path_files", None)) and _exists(
+		getattr(odb, "backup_path_private_files", None)
+	):
+		return
+	try:
+		odb.backup_files()
+		if frappe.get_system_settings("encrypt_backup"):
+			_encrypt_file_artifacts(odb)
+	except Exception:
+		frappe.log_error(title="Cloud Backup", message="File backup generation failed")
+
+
+def _encrypt_file_artifacts(odb) -> None:
+	"""Encrypt freshly written file dumps (the db dump is already encrypted)."""
+	from frappe.utils import execute_in_shell
+	from frappe.utils.backups import get_or_generate_backup_encryption_key
+
+	key = get_or_generate_backup_encryption_key()
+	for path in (odb.backup_path_files, odb.backup_path_private_files):
+		if not _exists(path):
+			continue
+		execute_in_shell(f"gpg --yes --passphrase {key} --pinentry-mode loopback -c {path}")
+		os.rename(path + ".gpg", path)
 
 
 def enqueue_for_schedule(schedule, odb, trigger: str = "schedule") -> list[str]:
@@ -122,15 +171,28 @@ def resolve_provider(settings=None) -> str | None:
 	return None
 
 
-def _auto_enqueue(path_for, trigger: str) -> list[str]:
-	"""Settings-gated auto-upload of selected artifacts, with dedupe."""
-	settings = get_cloud_backup_settings()
+def next_ready_provider(exclude: str, settings=None) -> str | None:
+	"""Return the best ready configured provider other than `exclude`."""
+	settings = settings or get_cloud_backup_settings()
+	for provider in (settings.default_provider, settings.fallback_provider):
+		if provider and provider != exclude and is_provider_ready(provider):
+			return provider
+	return None
+
+
+def enqueue_failover(failed_provider: str, artifact: str | None, path: str, backup_type: str) -> str | None:
+	"""Re-enqueue a failed artifact against the next ready provider (one hop)."""
+	target = next_ready_provider(failed_provider)
+	if not target or not path or not os.path.exists(path) or already_uploaded(path, target):
+		return None
+	return _create_and_enqueue(target, backup_type, artifact, path, "failover")
+
+
+def _resolve_auto_target(settings) -> str | None:
+	"""Return the auto-upload provider when auto-upload is enabled, else None."""
 	if not (settings.enabled and settings.automatic_upload):
-		return []
-	provider = resolve_provider(settings)
-	if not provider:
-		return []
-	return _enqueue_artifacts(provider, get_selected_artifacts(settings), path_for, trigger)
+		return None
+	return resolve_provider(settings)
 
 
 def _enqueue_artifacts(provider: str, artifacts, path_for, trigger: str) -> list[str]:

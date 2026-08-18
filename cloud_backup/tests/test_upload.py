@@ -75,6 +75,46 @@ class TestUpload(FrappeTestCase):
 		self.assertEqual(h.status, "Failed")
 		self.assertIn("nope", h.error)
 
+	def test_failure_fails_over_to_fallback_provider(self):
+		fallback = make_provider("dropbox", destination_folder="dbx")
+		frappe.db.set_value(
+			"Cloud Backup Settings",
+			"Cloud Backup Settings",
+			{"default_provider": self.provider.name, "fallback_provider": fallback.name},
+		)
+		frappe.clear_document_cache("Cloud Backup Settings", "Cloud Backup Settings")
+		enqueued = []
+		self.patch(provider_service, "get_provider", lambda p: _FakeProvider(error=NetworkError("down")))
+		self.patch(frappe, "enqueue", lambda *a, **k: enqueued.append(k))
+		h = self._history()
+		with self.assertRaises(NetworkError):
+			upload_backup.run(h.name, artifact="database", trigger="auto")
+		# A fresh Queued row was created for the fallback provider.
+		rows = frappe.get_all(
+			"Cloud Backup History",
+			filters={"provider": fallback.name, "local_file": self.tmp, "status": "Queued"},
+			pluck="name",
+		)
+		self.assertEqual(len(rows), 1)
+		self.assertEqual(enqueued[-1]["history"], rows[0])
+		self.assertEqual(enqueued[-1]["trigger"], "failover")
+
+	def test_failover_job_does_not_re_dispatch(self):
+		fallback = make_provider("dropbox", destination_folder="dbx")
+		frappe.db.set_value(
+			"Cloud Backup Settings",
+			"Cloud Backup Settings",
+			{"default_provider": self.provider.name, "fallback_provider": fallback.name},
+		)
+		frappe.clear_document_cache("Cloud Backup Settings", "Cloud Backup Settings")
+		enqueued = []
+		self.patch(provider_service, "get_provider", lambda p: _FakeProvider(error=NetworkError("down")))
+		self.patch(frappe, "enqueue", lambda *a, **k: enqueued.append(k))
+		h = self._history()
+		with self.assertRaises(NetworkError):
+			upload_backup.run(h.name, artifact="database", trigger="failover")
+		self.assertEqual(enqueued, [])
+
 	def patch(self, obj, attr, value):
 		original = getattr(obj, attr)
 		setattr(obj, attr, value)
